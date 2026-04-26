@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# 업로드된 원본 이미지 파일
+public/KakaoTalk_*
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
