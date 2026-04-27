@@ -3,13 +3,6 @@
 import { useState } from "react";
 import Button from "@/components/ui/Button";
 
-function getShareUrl(trainingId: string): string {
-  const base =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (typeof window !== "undefined" ? window.location.origin : "");
-  return `${base}/training/${trainingId}`;
-}
-
 export default function ShareLinkBox({
   trainingId,
 }: {
@@ -18,7 +11,7 @@ export default function ShareLinkBox({
 }) {
   const [copied, setCopied] = useState(false);
 
-  const shareUrl = getShareUrl(trainingId);
+  const shareUrl = `${window.location.origin}/training/${trainingId}`;
 
   async function handleCopy() {
     await navigator.clipboard.writeText(shareUrl);
