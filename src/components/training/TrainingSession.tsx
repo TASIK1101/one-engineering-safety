@@ -1,22 +1,22 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { v4 as uuidv4 } from "uuid";
-import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import SignatureCanvas, { type SignatureHandle } from "./SignatureCanvas";
-import type { Employee, Quiz, Training, TrainingAssignment } from "@/types";
+import type { Quiz, Training } from "@/types";
 
 type Step = "verify" | "confirmed" | "content" | "quiz" | "sign" | "done" | "already_done";
 
+type VerifiedEmployee = { id: string; name: string; department: string };
+type AssignmentRef = { id: string; status: string };
+
 export default function TrainingSession({ training }: { training: Training }) {
-  const supabase = createClient();
   const sigRef = useRef<SignatureHandle>(null);
 
   const [step, setStep] = useState<Step>("verify");
-  const [employee, setEmployee] = useState<Employee | null>(null);
-  const [assignment, setAssignment] = useState<TrainingAssignment | null>(null);
+  const [employee, setEmployee] = useState<VerifiedEmployee | null>(null);
+  const [assignment, setAssignment] = useState<AssignmentRef | null>(null);
 
   // 본인 확인
   const [verifyName, setVerifyName] = useState("");
@@ -49,79 +49,49 @@ export default function TrainingSession({ training }: { training: Training }) {
       return;
     }
 
-    // 이름으로 후보 직원 검색 (같은 관리자 소속)
-    const { data: candidates, error: searchError } = await supabase
-      .from("employees")
-      .select("*")
-      .eq("admin_id", training.admin_id)
-      .eq("name", verifyName.trim());
+    try {
+      const res = await fetch("/api/verify-employee", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trainingId: training.id,
+          name: verifyName.trim(),
+          phoneLast4: inputLast4,
+        }),
+      });
 
-    if (searchError || !candidates?.length) {
-      setVerifyError(
-        "등록된 직원 정보를 찾을 수 없습니다. 이름과 전화번호 뒷자리를 다시 확인해주세요."
-      );
-      setVerifying(false);
-      return;
-    }
+      const data = await res.json();
 
-    // 전화번호 뒷자리로 최종 매칭 (클라이언트 필터)
-    const matched = candidates.find(
-      (emp) => emp.phone.replace(/\D/g, "").slice(-4) === inputLast4
-    );
-
-    if (!matched) {
-      setVerifyError(
-        "등록된 직원 정보를 찾을 수 없습니다. 이름과 전화번호 뒷자리를 다시 확인해주세요."
-      );
-      setVerifying(false);
-      return;
-    }
-
-    // 기존 assignment 확인
-    const { data: existing } = await supabase
-      .from("training_assignments")
-      .select("*")
-      .eq("training_id", training.id)
-      .eq("employee_id", matched.id)
-      .maybeSingle();
-
-    if (existing?.status === "completed") {
-      setEmployee(matched as Employee);
-      setStep("already_done");
-      setVerifying(false);
-      return;
-    }
-
-    let finalAssignment = existing as TrainingAssignment | null;
-
-    if (!finalAssignment) {
-      // 신규 assignment 생성
-      const { data: created, error: insertError } = await supabase
-        .from("training_assignments")
-        .insert({
-          training_id: training.id,
-          employee_id: matched.id,
-          token: uuidv4(),
-          status: "pending",
-        })
-        .select()
-        .single();
-
-      if (insertError || !created) {
+      if (res.status === 404 || data.error === "not_found") {
         setVerifyError(
-          "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+          "등록된 직원 정보를 찾을 수 없습니다. 이름과 전화번호 뒷자리를 다시 확인해주세요."
         );
         setVerifying(false);
         return;
       }
 
-      finalAssignment = created as TrainingAssignment;
-    }
+      if (!res.ok) {
+        setVerifyError("서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+        setVerifying(false);
+        return;
+      }
 
-    setEmployee(matched as Employee);
-    setAssignment(finalAssignment);
-    setVerifying(false);
-    setStep("confirmed");
+      if (data.assignment.status === "completed") {
+        setEmployee(data.employee);
+        setStep("already_done");
+        setVerifying(false);
+        return;
+      }
+
+      setEmployee(data.employee);
+      setAssignment(data.assignment);
+      setVerifying(false);
+      setStep("confirmed");
+    } catch (err) {
+      console.error("verify error:", err);
+      setVerifyError("서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      setVerifying(false);
+    }
   }
 
   // ── 퀴즈 ─────────────────────────────────────────────────
@@ -147,23 +117,37 @@ export default function TrainingSession({ training }: { training: Training }) {
     setSubmitting(true);
     setSignError("");
 
-    const { error } = await supabase
-      .from("training_assignments")
-      .update({
-        status: "completed",
-        quiz_answers: answers,
-        signature_data: sigRef.current!.toDataURL(),
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", assignment!.id);
+    try {
+      const res = await fetch("/api/submit-training", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assignmentId: assignment!.id,
+          quizAnswers: answers,
+          signatureData: sigRef.current!.toDataURL(),
+        }),
+      });
 
-    if (error) {
-      setSignError("제출 중 오류가 발생했습니다. 다시 시도해주세요.");
+      const data = await res.json();
+
+      if (data.error === "already_completed") {
+        setStep("already_done");
+        setSubmitting(false);
+        return;
+      }
+
+      if (!res.ok) {
+        setSignError("제출 중 오류가 발생했습니다. 다시 시도해주세요.");
+        setSubmitting(false);
+        return;
+      }
+
+      setStep("done");
+    } catch (err) {
+      console.error("submit error:", err);
+      setSignError("서버 오류가 발생했습니다. 다시 시도해주세요.");
       setSubmitting(false);
-      return;
     }
-
-    setStep("done");
   }
 
   // ── 진행 단계 표시 ─────────────────────────────────────────
@@ -182,7 +166,8 @@ export default function TrainingSession({ training }: { training: Training }) {
         <div className="text-5xl mb-4">✅</div>
         <h2 className="text-xl font-bold text-gray-900 mb-2">이미 완료된 교육입니다</h2>
         <p className="text-gray-500 text-sm">
-          <strong>{employee?.name}</strong>님은 이 교육을 이미 완료하셨습니다.
+          {employee && <><strong>{employee.name}</strong>님은 </>}
+          이 교육을 이미 완료하셨습니다.
         </p>
       </div>
     );
