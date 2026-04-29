@@ -4,22 +4,26 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { assignmentId, quizAnswers, signatureData } = body as {
+    const { assignmentId, quizAnswers, signatureData, consentChecked } = body as {
       assignmentId: string;
       quizAnswers: ("O" | "X")[];
       signatureData: string;
+      consentChecked: boolean;
     };
 
     if (!assignmentId || !Array.isArray(quizAnswers) || !signatureData) {
       return NextResponse.json({ error: "invalid_input" }, { status: 400 });
     }
 
+    if (!consentChecked) {
+      return NextResponse.json({ error: "consent_required" }, { status: 400 });
+    }
+
     const supabase = createAdminClient();
 
-    // 현재 상태 확인
     const { data: assignment, error: fetchError } = await supabase
       .from("training_assignments")
-      .select("id, status")
+      .select("id, status, started_at")
       .eq("id", assignmentId)
       .single();
 
@@ -32,13 +36,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "already_completed" }, { status: 409 });
     }
 
+    const now = new Date();
+    const durationSeconds = assignment.started_at
+      ? Math.round((now.getTime() - new Date(assignment.started_at).getTime()) / 1000)
+      : null;
+
     const { error: updateError } = await supabase
       .from("training_assignments")
       .update({
         status: "completed",
         quiz_answers: quizAnswers,
         signature_data: signatureData,
-        completed_at: new Date().toISOString(),
+        completed_at: now.toISOString(),
+        duration_seconds: durationSeconds,
+        consent_checked: true,
       })
       .eq("id", assignmentId);
 

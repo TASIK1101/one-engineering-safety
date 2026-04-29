@@ -19,7 +19,12 @@ export default async function TrainingsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">교육 관리</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">안전교육 관리</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            교육 이수 현황을 한눈에 확인할 수 있습니다.
+          </p>
+        </div>
         <Link href="/trainings/new">
           <Button>+ 교육 생성</Button>
         </Link>
@@ -50,7 +55,7 @@ export default async function TrainingsPage() {
                 <span className="text-xs text-gray-400">
                   {new Date(training.created_at).toLocaleDateString("ko-KR")}
                 </span>
-                <span className="text-blue-600 text-sm">상세보기 →</span>
+                <span className="text-blue-600 text-sm">이수 현황 →</span>
               </div>
             </Link>
           ))}

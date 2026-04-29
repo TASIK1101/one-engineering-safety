@@ -7,6 +7,24 @@ import type { Employee, Training, TrainingAssignment } from "@/types";
 
 type AssignmentWithEmployee = TrainingAssignment & { employees: Employee };
 
+function formatDuration(seconds: number | null): string {
+  if (seconds === null || seconds < 0) return "-";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `${m}분 ${s}초` : `${s}초`;
+}
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default async function PrintTrainingPage({
   params,
 }: {
@@ -61,12 +79,8 @@ export default async function PrintTrainingPage({
 
   return (
     <>
-      {/* 인쇄 시 숨겨지는 스타일 + @page A4 설정 */}
       <style>{`
-        @page {
-          size: A4;
-          margin: 15mm;
-        }
+        @page { size: A4; margin: 15mm; }
         @media print {
           .no-print { display: none !important; }
           body {
@@ -79,14 +93,13 @@ export default async function PrintTrainingPage({
           table { page-break-inside: auto; }
           tr { page-break-inside: avoid; page-break-after: auto; }
           thead { display: table-header-group; }
-          .section-break { page-break-before: auto; }
         }
         body {
           font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Nanum Gothic', Arial, sans-serif;
         }
       `}</style>
 
-      {/* 상단 조작 바 (인쇄 시 숨김) */}
+      {/* 조작 바 (인쇄 시 숨김) */}
       <div className="no-print sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <a
@@ -96,54 +109,49 @@ export default async function PrintTrainingPage({
             ← 돌아가기
           </a>
           <span className="text-sm font-semibold text-gray-800">
-            교육일지 미리보기 — 인쇄하거나 PDF로 저장하세요
+            교육 이수 기록 출력 미리보기
           </span>
         </div>
         <PrintButton />
       </div>
 
       {/* 인쇄 문서 본문 */}
-      <div
-        className="mx-auto bg-white px-10 py-8 print:px-0 print:py-0"
-        style={{ maxWidth: "210mm" }}
-      >
+      <div className="mx-auto bg-white px-10 py-8 print:px-0 print:py-0" style={{ maxWidth: "210mm" }}>
+
         {/* ── 문서 헤더 ── */}
-        <div
-          className="text-center pb-4 mb-6"
-          style={{ borderBottom: "2px solid #111" }}
-        >
-          <h1 style={{ fontSize: "22px", fontWeight: "bold", margin: 0 }}>
+        <div className="text-center pb-5 mb-6" style={{ borderBottom: "2.5px solid #111" }}>
+          <p style={{ fontSize: "12px", color: "#555", marginBottom: "4px", letterSpacing: "1px" }}>
+            주식회사 원엔지니어링
+          </p>
+          <h1 style={{ fontSize: "22px", fontWeight: "bold", margin: "0 0 4px" }}>
             안전교육 이수 기록
           </h1>
-          <p style={{ fontSize: "15px", marginTop: "4px", marginBottom: 0 }}>
-            주식회사 원엔지니어링
+          <p style={{ fontSize: "12px", color: "#777", margin: 0 }}>
+            Safety Training Completion Record
           </p>
         </div>
 
         {/* ── 교육 기본 정보 ── */}
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: "13px",
-            marginBottom: "20px",
-          }}
-        >
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", marginBottom: "20px" }}>
           <tbody>
             <tr>
               <th style={thStyle}>교육명</th>
-              <td style={{ ...tdStyle, fontWeight: "bold", fontSize: "14px" }}>
+              <td style={{ ...tdStyle, fontWeight: "bold", fontSize: "14px" }} colSpan={3}>
                 {t.title}
               </td>
+            </tr>
+            <tr>
+              <th style={thStyle}>교육 목적</th>
+              <td style={tdStyle}>{t.description || "-"}</td>
               <th style={thStyle}>출력일자</th>
               <td style={tdStyle}>{printDate}</td>
             </tr>
             <tr>
-              <th style={thStyle}>총 대상 인원</th>
+              <th style={thStyle}>전체 대상자</th>
               <td style={tdStyle}>{allEmployees.length}명</td>
-              <th style={thStyle}>완료 / 미완료</th>
+              <th style={thStyle}>이수 완료 / 미이수</th>
               <td style={tdStyle}>
-                완료 {completedCount}명 / 미완료 {pendingCount}명
+                이수 완료 {completedCount}명 / 미이수 {pendingCount}명
               </td>
             </tr>
           </tbody>
@@ -152,59 +160,37 @@ export default async function PrintTrainingPage({
         {/* ── 교육 내용 ── */}
         <div style={{ marginBottom: "20px" }}>
           <h2 style={sectionTitleStyle}>교육 내용</h2>
-          {t.description && (
-            <p style={{ fontSize: "12px", color: "#555", marginBottom: "6px" }}>
-              {t.description}
-            </p>
-          )}
-          <div
-            style={{
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              padding: "12px 16px",
-              fontSize: "12px",
-              lineHeight: "1.8",
-              whiteSpace: "pre-wrap",
-              background: "#fafafa",
-            }}
-          >
+          <div style={{
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            padding: "12px 16px",
+            fontSize: "12px",
+            lineHeight: "1.8",
+            whiteSpace: "pre-wrap",
+            background: "#fafafa",
+          }}>
             {t.content}
           </div>
         </div>
 
-        {/* ── O/X 퀴즈 ── */}
+        {/* ── 교육 확인 문항 ── */}
         {quizzes.length > 0 && (
           <div style={{ marginBottom: "20px" }}>
-            <h2 style={sectionTitleStyle}>O/X 퀴즈</h2>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: "12px",
-              }}
-            >
+            <h2 style={sectionTitleStyle}>교육 확인 문항</h2>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
               <thead>
                 <tr style={{ background: "#f3f4f6" }}>
-                  <th style={{ ...thStyle, width: "48px" }}>번호</th>
-                  <th style={{ ...thStyle, textAlign: "left" }}>문제</th>
+                  <th style={{ ...thStyle, width: "52px" }}>번호</th>
+                  <th style={{ ...thStyle, textAlign: "left" }}>문항</th>
                   <th style={{ ...thStyle, width: "56px" }}>정답</th>
                 </tr>
               </thead>
               <tbody>
                 {quizzes.map((q, i) => (
                   <tr key={i}>
-                    <td style={{ ...tdStyle, textAlign: "center" }}>
-                      Q{i + 1}
-                    </td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>문항 {i + 1}</td>
                     <td style={tdStyle}>{q.question}</td>
-                    <td
-                      style={{
-                        ...tdStyle,
-                        textAlign: "center",
-                        fontWeight: "bold",
-                        fontSize: "14px",
-                      }}
-                    >
+                    <td style={{ ...tdStyle, textAlign: "center", fontWeight: "bold", fontSize: "14px" }}>
                       {q.answer}
                     </td>
                   </tr>
@@ -216,23 +202,19 @@ export default async function PrintTrainingPage({
 
         {/* ── 이수 현황 서명부 ── */}
         <div style={{ marginBottom: "24px" }}>
-          <h2 style={sectionTitleStyle}>이수 현황 서명부</h2>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: "12px",
-            }}
-          >
+          <h2 style={sectionTitleStyle}>직원별 이수 현황 서명부</h2>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
             <thead>
               <tr style={{ background: "#f3f4f6" }}>
-                <th style={{ ...thStyle, width: "36px" }}>번호</th>
-                <th style={{ ...thStyle, width: "70px" }}>이름</th>
-                <th style={{ ...thStyle, width: "90px" }}>부서 / 직급</th>
-                <th style={{ ...thStyle, width: "44px" }}>완료</th>
-                <th style={{ ...thStyle, minWidth: "110px" }}>완료일시</th>
-                <th style={{ ...thStyle, width: "52px" }}>퀴즈</th>
-                <th style={{ ...thStyle, width: "100px" }}>전자서명</th>
+                <th style={{ ...thStyle, width: "28px" }}>No</th>
+                <th style={{ ...thStyle, width: "60px" }}>이름</th>
+                <th style={{ ...thStyle, width: "80px" }}>부서 / 직급</th>
+                <th style={{ ...thStyle, width: "44px" }}>이수 상태</th>
+                <th style={{ ...thStyle, width: "100px" }}>교육 시작</th>
+                <th style={{ ...thStyle, width: "100px" }}>제출 완료</th>
+                <th style={{ ...thStyle, width: "52px" }}>소요 시간</th>
+                <th style={{ ...thStyle, width: "52px" }}>확인 결과</th>
+                <th style={{ ...thStyle, width: "90px" }}>전자서명</th>
               </tr>
             </thead>
             <tbody>
@@ -248,58 +230,39 @@ export default async function PrintTrainingPage({
 
                 return (
                   <tr key={emp.id}>
-                    <td style={{ ...tdStyle, textAlign: "center" }}>
-                      {idx + 1}
-                    </td>
-                    <td style={{ ...tdStyle, fontWeight: "500" }}>
-                      {emp.name}
-                    </td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>{idx + 1}</td>
+                    <td style={{ ...tdStyle, fontWeight: "500" }}>{emp.name}</td>
                     <td style={tdStyle}>{emp.department || "-"}</td>
-                    <td
-                      style={{
-                        ...tdStyle,
-                        textAlign: "center",
-                        fontWeight: "bold",
-                        color: isCompleted ? "#166534" : "#92400e",
-                      }}
-                    >
-                      {isCompleted ? "✓" : "○"}
+                    <td style={{
+                      ...tdStyle,
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      color: isCompleted ? "#166534" : "#92400e",
+                      fontSize: "10px",
+                    }}>
+                      {isCompleted ? "이수 완료" : "미이수"}
                     </td>
-                    <td style={{ ...tdStyle, fontSize: "11px" }}>
-                      {a?.completed_at
-                        ? new Date(a.completed_at).toLocaleString("ko-KR", {
-                            year: "numeric",
-                            month: "2-digit",
-                            day: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "-"}
+                    <td style={{ ...tdStyle, fontSize: "10px" }}>
+                      {formatDateTime(a?.started_at ?? null)}
+                    </td>
+                    <td style={{ ...tdStyle, fontSize: "10px" }}>
+                      {formatDateTime(a?.completed_at ?? null)}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                      {formatDuration(a?.duration_seconds ?? null)}
                     </td>
                     <td style={{ ...tdStyle, textAlign: "center" }}>
                       {quizCorrect !== null
                         ? `${quizCorrect}/${quizzes.length}`
                         : "-"}
                     </td>
-                    <td
-                      style={{
-                        ...tdStyle,
-                        textAlign: "center",
-                        height: "54px",
-                        padding: "3px",
-                      }}
-                    >
+                    <td style={{ ...tdStyle, textAlign: "center", height: "54px", padding: "3px" }}>
                       {a?.signature_data ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={a.signature_data}
                           alt={`${emp.name} 서명`}
-                          style={{
-                            maxHeight: "48px",
-                            maxWidth: "94px",
-                            margin: "0 auto",
-                            display: "block",
-                          }}
+                          style={{ maxHeight: "48px", maxWidth: "84px", margin: "0 auto", display: "block" }}
                         />
                       ) : (
                         <span style={{ color: "#aaa" }}>-</span>
@@ -312,17 +275,30 @@ export default async function PrintTrainingPage({
           </table>
         </div>
 
+        {/* ── 하단 안내 문구 ── */}
+        <div style={{
+          border: "1px solid #ddd",
+          borderRadius: "4px",
+          padding: "10px 14px",
+          marginBottom: "16px",
+          background: "#f9fafb",
+          fontSize: "11px",
+          color: "#555",
+          lineHeight: "1.6",
+        }}>
+          본 문서는 안전교육 이행 기록 및 서명 증빙 관리를 위해 생성되었습니다.
+          직원별 교육 참여 및 전자서명 기록을 보관합니다.
+        </div>
+
         {/* ── 푸터 ── */}
-        <div
-          style={{
-            borderTop: "1px solid #ccc",
-            paddingTop: "10px",
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: "11px",
-            color: "#777",
-          }}
-        >
+        <div style={{
+          borderTop: "1px solid #ccc",
+          paddingTop: "10px",
+          display: "flex",
+          justifyContent: "space-between",
+          fontSize: "11px",
+          color: "#777",
+        }}>
           <span>주식회사 원엔지니어링</span>
           <span>출력일시: {printDateTime}</span>
         </div>
@@ -331,7 +307,6 @@ export default async function PrintTrainingPage({
   );
 }
 
-// ── 공통 인라인 스타일 상수 ──
 const thStyle: React.CSSProperties = {
   border: "1px solid #aaa",
   background: "#f3f4f6",

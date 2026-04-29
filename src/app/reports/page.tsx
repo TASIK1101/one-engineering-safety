@@ -17,9 +17,12 @@ export default async function ReportsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">교육일지 출력</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-1">
+        교육 이수 기록 출력
+      </h1>
       <p className="text-sm text-gray-500 mb-6">
-        교육을 선택하면 완료된 직원의 서명이 포함된 교육일지를 PDF로 다운로드합니다.
+        교육을 선택하면 직원별 이수 현황과 전자서명이 포함된 기록 문서를
+        출력하거나 PDF로 저장할 수 있습니다.
       </p>
 
       {!trainings || trainings.length === 0 ? (
@@ -29,10 +32,7 @@ export default async function ReportsPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {trainings.map((training) => (
-            <ReportDownloader
-              key={training.id}
-              training={training}
-            />
+            <ReportDownloader key={training.id} training={training} />
           ))}
         </div>
       )}

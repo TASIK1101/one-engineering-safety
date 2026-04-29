@@ -6,10 +6,17 @@ import Input from "@/components/ui/Input";
 import SignatureCanvas, { type SignatureHandle } from "./SignatureCanvas";
 import type { Quiz, Training } from "@/types";
 
-type Step = "verify" | "confirmed" | "content" | "quiz" | "sign" | "done" | "already_done";
+type Step =
+  | "verify"
+  | "confirmed"
+  | "content"
+  | "quiz"
+  | "sign"
+  | "done"
+  | "already_done";
 
 type VerifiedEmployee = { id: string; name: string; department: string };
-type AssignmentRef = { id: string; status: string };
+type AssignmentRef = { id: string; status: string; started_at: string | null };
 
 export default function TrainingSession({ training }: { training: Training }) {
   const sigRef = useRef<SignatureHandle>(null);
@@ -24,13 +31,14 @@ export default function TrainingSession({ training }: { training: Training }) {
   const [verifyError, setVerifyError] = useState("");
   const [verifying, setVerifying] = useState(false);
 
-  // 퀴즈
+  // 교육 확인 문항
   const [answers, setAnswers] = useState<("O" | "X" | null)[]>(
     training.quizzes.map(() => null)
   );
   const [quizError, setQuizError] = useState("");
 
   // 서명/제출
+  const [consentChecked, setConsentChecked] = useState(false);
   const [signError, setSignError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -94,7 +102,7 @@ export default function TrainingSession({ training }: { training: Training }) {
     }
   }
 
-  // ── 퀴즈 ─────────────────────────────────────────────────
+  // ── 교육 확인 문항 ────────────────────────────────────────
   function handleAnswer(index: number, value: "O" | "X") {
     setAnswers((prev) => prev.map((a, i) => (i === index ? value : a)));
     setQuizError("");
@@ -102,7 +110,7 @@ export default function TrainingSession({ training }: { training: Training }) {
 
   function handleQuizNext() {
     if (answers.some((a) => a === null)) {
-      setQuizError("모든 문제에 답을 선택해주세요.");
+      setQuizError("모든 문항에 응답해주세요.");
       return;
     }
     setStep("sign");
@@ -110,6 +118,10 @@ export default function TrainingSession({ training }: { training: Training }) {
 
   // ── 최종 제출 ─────────────────────────────────────────────
   async function handleSubmit() {
+    if (!consentChecked) {
+      setSignError("동의 체크박스를 선택해주세요.");
+      return;
+    }
     if (sigRef.current?.isEmpty()) {
       setSignError("서명을 해주세요.");
       return;
@@ -125,6 +137,7 @@ export default function TrainingSession({ training }: { training: Training }) {
           assignmentId: assignment!.id,
           quizAnswers: answers,
           signatureData: sigRef.current!.toDataURL(),
+          consentChecked: true,
         }),
       });
 
@@ -150,13 +163,12 @@ export default function TrainingSession({ training }: { training: Training }) {
     }
   }
 
-  // ── 진행 단계 표시 ─────────────────────────────────────────
+  // ── 진행 단계 표시 ────────────────────────────────────────
   const stepOrder: Step[] = ["verify", "content", "quiz", "sign"];
   const currentIndex = stepOrder.indexOf(
     step === "confirmed" ? "verify" : step
   );
-
-  const stepLabels = ["본인 확인", "교육 내용", "퀴즈", "서명"];
+  const stepLabels = ["본인 확인", "교육 내용", "문항 응답", "서명"];
 
   // ══════════════════════════════════════════════════════════
 
@@ -164,10 +176,12 @@ export default function TrainingSession({ training }: { training: Training }) {
     return (
       <div className="text-center py-16">
         <div className="text-5xl mb-4">✅</div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">이미 완료된 교육입니다</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">
+          이미 이수 완료된 교육입니다
+        </h2>
         <p className="text-gray-500 text-sm">
           {employee && <><strong>{employee.name}</strong>님은 </>}
-          이 교육을 이미 완료하셨습니다.
+          이 교육을 이미 이수 완료하셨습니다.
         </p>
       </div>
     );
@@ -177,10 +191,12 @@ export default function TrainingSession({ training }: { training: Training }) {
     return (
       <div className="text-center py-16">
         <div className="text-6xl mb-6">✅</div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-3">교육 완료!</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-3">
+          교육 이수 완료!
+        </h2>
         <p className="text-gray-600">
-          <strong>{employee?.name}</strong>님의 안전교육 이수 기록이
-          정상적으로 저장되었습니다.
+          <strong>{employee?.name}</strong>님의 안전교육 이수 기록 및
+          전자서명이 정상적으로 저장되었습니다.
         </p>
         <p className="text-xs text-gray-400 mt-3">
           이 화면을 캡처하거나 창을 닫으셔도 됩니다.
@@ -258,8 +274,12 @@ export default function TrainingSession({ training }: { training: Training }) {
             </p>
           )}
 
-          <Button type="submit" loading={verifying} className="w-full py-3 text-base">
-            교육 시작하기
+          <Button
+            type="submit"
+            loading={verifying}
+            className="w-full py-3 text-base"
+          >
+            교육 참여 확인
           </Button>
         </form>
       )}
@@ -318,20 +338,28 @@ export default function TrainingSession({ training }: { training: Training }) {
             onClick={() => setStep("quiz")}
             className="w-full py-3 text-base"
           >
-            내용을 확인했습니다 → 퀴즈 풀기
+            내용을 확인했습니다 → 교육 확인 문항 응답
           </Button>
         </div>
       )}
 
-      {/* ── STEP: O/X 퀴즈 ── */}
+      {/* ── STEP: 교육 확인 문항 ── */}
       {step === "quiz" && (
         <div className="flex flex-col gap-4">
           <div className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm flex flex-col gap-6">
-            <h2 className="font-bold text-gray-900">O/X 퀴즈</h2>
+            <div>
+              <h2 className="font-bold text-gray-900">교육 확인 문항</h2>
+              <p className="text-xs text-gray-500 mt-1">
+                아래 문항은 교육 내용을 확인하기 위한 절차입니다.
+                모든 문항에 응답한 뒤 전자서명을 진행해주세요.
+              </p>
+            </div>
             {quizzes.map((quiz, i) => (
               <div key={i} className="flex flex-col gap-3">
                 <p className="text-sm font-medium text-gray-900 leading-relaxed">
-                  <span className="text-blue-600 font-bold mr-1.5">Q{i + 1}.</span>
+                  <span className="text-blue-600 font-bold mr-1.5">
+                    문항 {i + 1}.
+                  </span>
                   {quiz.question}
                 </p>
                 <div className="flex gap-3">
@@ -371,7 +399,7 @@ export default function TrainingSession({ training }: { training: Training }) {
               ← 이전
             </Button>
             <Button onClick={handleQuizNext} className="flex-1 py-3">
-              다음 → 서명
+              다음 → 전자서명
             </Button>
           </div>
         </div>
@@ -386,7 +414,8 @@ export default function TrainingSession({ training }: { training: Training }) {
             <div className="rounded-lg bg-blue-50 border border-blue-100 p-4 text-sm text-blue-900 leading-relaxed">
               본인(<strong>{employee.name}</strong>)은{" "}
               <strong>{new Date().toLocaleDateString("ko-KR")}</strong>에
-              주식회사 원엔지니어링의 안전교육을 성실히 이수하였음을 확인하고 서명합니다.
+              주식회사 원엔지니어링의 안전교육을 성실히 이수하였음을 확인하고
+              서명합니다.
             </div>
 
             <div>
@@ -395,6 +424,23 @@ export default function TrainingSession({ training }: { training: Training }) {
               </p>
               <SignatureCanvas ref={sigRef} />
             </div>
+
+            {/* 동의 체크박스 */}
+            <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <input
+                type="checkbox"
+                checked={consentChecked}
+                onChange={(e) => {
+                  setConsentChecked(e.target.checked);
+                  if (e.target.checked) setSignError("");
+                }}
+                className="mt-0.5 h-4 w-4 rounded border-gray-400 text-blue-600 shrink-0"
+              />
+              <span className="text-sm text-gray-700 leading-relaxed">
+                본인은 위 안전교육 내용을 직접 확인했으며, 교육 이수 기록 및
+                전자서명 저장에 동의합니다.
+              </span>
+            </label>
           </div>
 
           {signError && (
@@ -414,9 +460,10 @@ export default function TrainingSession({ training }: { training: Training }) {
             <Button
               onClick={handleSubmit}
               loading={submitting}
-              className="flex-1 py-3"
+              disabled={!consentChecked}
+              className={`flex-1 py-3 ${!consentChecked ? "opacity-50 cursor-not-allowed" : ""}`}
             >
-              교육 완료 제출
+              서명 후 제출
             </Button>
           </div>
         </div>

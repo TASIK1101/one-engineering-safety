@@ -30,7 +30,10 @@ export type TrainingAssignment = {
   status: "pending" | "completed";
   quiz_answers: ("O" | "X")[] | null;
   signature_data: string | null;
+  started_at: string | null;
   completed_at: string | null;
+  duration_seconds: number | null;
+  consent_checked: boolean;
   created_at: string;
 };
 

@@ -8,9 +8,9 @@ import CompanyLogo from "@/components/ui/CompanyLogo";
 
 const navItems = [
   { href: "/dashboard", label: "대시보드" },
-  { href: "/employees", label: "직원 관리" },
-  { href: "/trainings", label: "교육 관리" },
-  { href: "/reports", label: "교육일지 출력" },
+  { href: "/employees", label: "교육 대상자 관리" },
+  { href: "/trainings", label: "안전교육 관리" },
+  { href: "/reports", label: "교육 이수 기록 출력" },
 ];
 
 export default function AdminNav() {
@@ -46,7 +46,11 @@ export default function AdminNav() {
             ))}
           </nav>
         </div>
-        <Button variant="ghost" onClick={handleLogout} className="text-sm text-slate-500">
+        <Button
+          variant="ghost"
+          onClick={handleLogout}
+          className="text-sm text-slate-500"
+        >
           로그아웃
         </Button>
       </div>

@@ -7,7 +7,6 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Textarea from "@/components/ui/Textarea";
 import Link from "next/link";
-import { v4 as uuidv4 } from "uuid";
 import type { Quiz } from "@/types";
 
 const emptyQuiz = (): Quiz => ({ question: "", answer: "O" });
@@ -35,11 +34,7 @@ export default function NewTrainingPage() {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
-  function handleQuizChange(
-    index: number,
-    field: keyof Quiz,
-    value: string
-  ) {
+  function handleQuizChange(index: number, field: keyof Quiz, value: string) {
     setQuizzes((prev) =>
       prev.map((q, i) => (i === index ? { ...q, [field]: value } : q))
     );
@@ -52,7 +47,7 @@ export default function NewTrainingPage() {
       return;
     }
     if (quizzes.some((q) => !q.question.trim())) {
-      setError("퀴즈 질문을 모두 입력해주세요.");
+      setError("교육 확인 문항을 모두 입력해주세요.");
       return;
     }
 
@@ -84,11 +79,14 @@ export default function NewTrainingPage() {
   return (
     <div className="max-w-2xl">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/trainings" className="text-gray-400 hover:text-gray-600 text-sm">
+        <Link
+          href="/trainings"
+          className="text-gray-400 hover:text-gray-600 text-sm"
+        >
           ← 교육 목록
         </Link>
         <span className="text-gray-300">/</span>
-        <h1 className="text-xl font-bold text-gray-900">교육 생성</h1>
+        <h1 className="text-xl font-bold text-gray-900">안전교육 생성</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -105,7 +103,7 @@ export default function NewTrainingPage() {
             autoFocus
           />
           <Input
-            label="교육 설명"
+            label="교육 목적 / 설명"
             name="description"
             placeholder="교육 목적이나 대상을 간단히 적어주세요"
             value={form.description}
@@ -127,12 +125,17 @@ export default function NewTrainingPage() {
           />
         </section>
 
-        {/* O/X 퀴즈 */}
+        {/* 교육 확인 문항 */}
         <section className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm flex flex-col gap-4">
-          <h2 className="font-semibold text-gray-800">O/X 퀴즈 (3문항)</h2>
-          <p className="text-xs text-gray-400">
-            교육 내용을 확인하는 간단한 O/X 문제를 입력해주세요.
-          </p>
+          <div>
+            <h2 className="font-semibold text-gray-800">
+              교육 확인 문항 (3문항)
+            </h2>
+            <p className="text-xs text-gray-400 mt-1">
+              교육 내용을 확인하는 O/X 문항을 입력해주세요.
+              직원은 교육 내용 확인 후 이 문항에 응답합니다.
+            </p>
+          </div>
           {quizzes.map((quiz, i) => (
             <div
               key={i}
@@ -143,7 +146,7 @@ export default function NewTrainingPage() {
               </span>
               <div className="flex-1 flex flex-col gap-2">
                 <Input
-                  placeholder={`퀴즈 ${i + 1} 질문`}
+                  placeholder={`문항 ${i + 1}`}
                   value={quiz.question}
                   onChange={(e) =>
                     handleQuizChange(i, "question", e.target.value)
@@ -170,7 +173,7 @@ export default function NewTrainingPage() {
                         onChange={() => handleQuizChange(i, "answer", opt)}
                         className="sr-only"
                       />
-                      {opt === "O" ? "⭕ 맞다" : "❌ 틀리다"}
+                      {opt === "O" ? "⭕ 맞다 (O)" : "❌ 틀리다 (X)"}
                     </label>
                   ))}
                 </div>
