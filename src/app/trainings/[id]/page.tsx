@@ -42,12 +42,22 @@ export default async function TrainingDetailPage({
   return (
     <div className="max-w-3xl">
       {/* 헤더 */}
-      <div className="flex items-center gap-3 mb-6">
-        <Link href="/trainings" className="text-gray-400 hover:text-gray-600 text-sm">
-          ← 교육 목록
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/trainings" className="text-gray-400 hover:text-gray-600 text-sm shrink-0">
+            ← 교육 목록
+          </Link>
+          <span className="text-gray-300">/</span>
+          <h1 className="text-xl font-bold text-gray-900 truncate">{training.title}</h1>
+        </div>
+        <Link
+          href={`/print/training/${id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm hover:bg-gray-50 transition-colors"
+        >
+          🖨️ 교육일지 출력
         </Link>
-        <span className="text-gray-300">/</span>
-        <h1 className="text-xl font-bold text-gray-900 truncate">{training.title}</h1>
       </div>
 
       {/* 교육 내용 요약 */}

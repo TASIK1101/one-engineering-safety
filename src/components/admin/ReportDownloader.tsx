@@ -1,33 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import Button from "@/components/ui/Button";
-import { generateTrainingReport } from "@/lib/pdf";
+import Link from "next/link";
 import type { Training } from "@/types";
 
 export default function ReportDownloader({ training }: { training: Training }) {
-  const [loading, setLoading] = useState(false);
-  const supabase = createClient();
-
-  async function handleDownload() {
-    setLoading(true);
-    const { data: assignments } = await supabase
-      .from("training_assignments")
-      .select("*, employees(*)")
-      .eq("training_id", training.id)
-      .eq("status", "completed");
-
-    if (!assignments || assignments.length === 0) {
-      alert("완료된 교육 기록이 없습니다.");
-      setLoading(false);
-      return;
-    }
-
-    await generateTrainingReport(training, assignments as any);
-    setLoading(false);
-  }
-
   return (
     <div className="flex items-center justify-between rounded-xl bg-white border border-gray-200 p-5 shadow-sm">
       <div>
@@ -36,14 +12,14 @@ export default function ReportDownloader({ training }: { training: Training }) {
           {new Date(training.created_at).toLocaleDateString("ko-KR")} 생성
         </p>
       </div>
-      <Button
-        onClick={handleDownload}
-        loading={loading}
-        variant="secondary"
-        className="gap-2"
+      <Link
+        href={`/print/training/${training.id}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
       >
-        📄 PDF 다운로드
-      </Button>
+        🖨️ 교육일지 출력 / PDF 저장
+      </Link>
     </div>
   );
 }

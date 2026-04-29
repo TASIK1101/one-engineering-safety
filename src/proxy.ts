@@ -36,7 +36,8 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/employees") ||
     pathname.startsWith("/trainings") ||
-    pathname.startsWith("/reports");
+    pathname.startsWith("/reports") ||
+    pathname.startsWith("/print");
 
   if (isAdminRoute && !user) {
     const url = request.nextUrl.clone();
