@@ -164,6 +164,51 @@ export default async function PrintTrainingPage({
           </tbody>
         </table>
 
+        {/* ── 작업 전 안전교육 전용 정보 ── */}
+        {t.training_type === "pre_work_training" && (
+          <div style={{ marginBottom: "20px" }}>
+            <h2 style={{ ...sectionTitleStyle, borderLeftColor: "#16a34a" }}>
+              작업 전 안전교육 정보
+            </h2>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+              <tbody>
+                <tr>
+                  <th style={thStyle}>작업일</th>
+                  <td style={tdStyle}>{t.work_date || "-"}</td>
+                  <th style={thStyle}>작업명</th>
+                  <td style={tdStyle}>{t.work_name || "-"}</td>
+                </tr>
+                <tr>
+                  <th style={thStyle}>작업 장소</th>
+                  <td style={tdStyle} colSpan={3}>{t.work_location || "-"}</td>
+                </tr>
+                <tr>
+                  <th style={thStyle}>교육 담당자</th>
+                  <td style={tdStyle} colSpan={3}>{t.instructor || "-"}</td>
+                </tr>
+                <tr>
+                  <th style={{ ...thStyle, whiteSpace: "normal" }}>주요 위험요인</th>
+                  <td style={{ ...tdStyle, whiteSpace: "pre-wrap" }} colSpan={3}>
+                    {t.risk_factors || "-"}
+                  </td>
+                </tr>
+                <tr>
+                  <th style={{ ...thStyle, whiteSpace: "normal" }}>보호구 확인</th>
+                  <td style={{ ...tdStyle, whiteSpace: "pre-wrap" }} colSpan={3}>
+                    {t.ppe_check || "-"}
+                  </td>
+                </tr>
+                <tr>
+                  <th style={{ ...thStyle, whiteSpace: "normal" }}>오늘의 주의사항</th>
+                  <td style={{ ...tdStyle, whiteSpace: "pre-wrap" }} colSpan={3}>
+                    {t.daily_notice || "-"}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* ── 교육 내용 ── */}
         <div style={{ marginBottom: "20px" }}>
           <h2 style={sectionTitleStyle}>교육 내용</h2>

@@ -21,6 +21,14 @@ export type Training = {
   quizzes: Quiz[];
   training_type: string;
   created_at: string;
+  // 작업 전 안전교육 전용 필드
+  work_date: string | null;
+  work_name: string | null;
+  work_location: string | null;
+  risk_factors: string | null;
+  ppe_check: string | null;
+  daily_notice: string | null;
+  instructor: string | null;
 };
 
 export type TrainingAssignment = {
