@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     const { data: existing, error: assignError } = await supabase
       .from("training_assignments")
-      .select("id, status, started_at")
+      .select("id, status, started_at, completed_at, quiz_answers")
       .eq("training_id", trainingId)
       .eq("employee_id", matched.id)
       .maybeSingle();
@@ -70,7 +70,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "server_error" }, { status: 500 });
     }
 
-    let assignment: { id: string; status: string; started_at: string | null };
+    let assignment: {
+      id: string;
+      status: string;
+      started_at: string | null;
+      completed_at?: string | null;
+      quiz_answers?: ("O" | "X")[] | null;
+    };
 
     if (!existing) {
       // 신규 assignment 생성
@@ -120,6 +126,8 @@ export async function POST(req: NextRequest) {
         id: assignment.id,
         status: assignment.status,
         started_at: assignment.started_at,
+        completed_at: assignment.completed_at ?? null,
+        quiz_answers: assignment.quiz_answers ?? null,
       },
     });
   } catch (err) {

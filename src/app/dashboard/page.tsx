@@ -42,7 +42,7 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-8">
         <StatCard label="교육 대상자" value={employeeCount ?? 0} unit="명" />
-        <StatCard label="생성 교육" value={trainingCount ?? 0} unit="개" />
+        <StatCard label="등록된 안전교육" value={trainingCount ?? 0} unit="개" />
         <StatCard
           label="이수 완료"
           value={completedCount}
@@ -61,25 +61,25 @@ export default async function DashboardPage() {
         <QuickLink
           href="/employees/new"
           title="교육 대상자 등록"
-          desc="새 직원을 등록하세요"
+          desc="교육 대상자를 등록하고 안전교육 이수 현황을 관리하세요"
           icon="👤"
         />
         <QuickLink
           href="/trainings/new"
-          title="안전교육 생성"
-          desc="안전교육 내용과 확인 문항을 작성하세요"
+          title="안전교육 등록"
+          desc="안전교육 내용과 교육 확인 문항을 작성하세요"
           icon="📋"
         />
         <QuickLink
           href="/trainings"
           title="이수 현황 확인"
-          desc="직원별 이수 완료/미이수 현황을 확인하세요"
+          desc="대상자별 이수 완료/미이수 현황을 확인하세요"
           icon="✅"
         />
         <QuickLink
           href="/reports"
           title="교육 이수 기록 출력"
-          desc="서명이 포함된 교육 이수 기록을 출력하세요"
+          desc="전자서명이 포함된 교육 이수 기록을 출력하거나 PDF로 저장하세요"
           icon="📄"
         />
       </div>

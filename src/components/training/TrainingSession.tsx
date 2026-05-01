@@ -16,7 +16,24 @@ type Step =
   | "already_done";
 
 type VerifiedEmployee = { id: string; name: string; department: string };
-type AssignmentRef = { id: string; status: string; started_at: string | null };
+type AssignmentRef = {
+  id: string;
+  status: string;
+  started_at: string | null;
+  completed_at?: string | null;
+  quiz_answers?: ("O" | "X")[] | null;
+};
+
+function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function TrainingSession({ training }: { training: Training }) {
   const sigRef = useRef<SignatureHandle>(null);
@@ -72,20 +89,21 @@ export default function TrainingSession({ training }: { training: Training }) {
 
       if (res.status === 404 || data.error === "not_found") {
         setVerifyError(
-          "등록된 직원 정보를 찾을 수 없습니다. 이름과 전화번호 뒷자리를 다시 확인해주세요."
+          "등록된 교육 대상자 정보를 찾을 수 없습니다. 이름과 전화번호 뒷자리를 다시 확인해주세요."
         );
         setVerifying(false);
         return;
       }
 
       if (!res.ok) {
-        setVerifyError("서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+        setVerifyError("서버 오류가 발생했습니다. 관리자에게 문의해주세요.");
         setVerifying(false);
         return;
       }
 
       if (data.assignment.status === "completed") {
         setEmployee(data.employee);
+        setAssignment(data.assignment);
         setStep("already_done");
         setVerifying(false);
         return;
@@ -97,7 +115,7 @@ export default function TrainingSession({ training }: { training: Training }) {
       setStep("confirmed");
     } catch (err) {
       console.error("verify error:", err);
-      setVerifyError("서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      setVerifyError("서버 오류가 발생했습니다. 관리자에게 문의해주세요.");
       setVerifying(false);
     }
   }
@@ -173,16 +191,49 @@ export default function TrainingSession({ training }: { training: Training }) {
   // ══════════════════════════════════════════════════════════
 
   if (step === "already_done") {
+    const completedQuizCount =
+      assignment?.quiz_answers && training.quizzes.length > 0
+        ? assignment.quiz_answers.filter(
+            (ans, i) => ans === training.quizzes[i]?.answer
+          ).length
+        : null;
+
     return (
-      <div className="text-center py-16">
-        <div className="text-5xl mb-4">✅</div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">
-          이미 이수 완료된 교육입니다
-        </h2>
-        <p className="text-gray-500 text-sm">
-          {employee && <><strong>{employee.name}</strong>님은 </>}
-          이 교육을 이미 이수 완료하셨습니다.
-        </p>
+      <div className="rounded-xl bg-white border border-gray-200 p-8 shadow-sm flex flex-col items-center text-center gap-5">
+        <div className="text-6xl">✅</div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-1">
+            이미 이수 완료된 교육입니다
+          </h2>
+          <p className="text-sm text-gray-500">
+            해당 교육은 이미 이수 완료 처리되었습니다. 추가 제출은 필요하지
+            않습니다.
+          </p>
+        </div>
+
+        <div className="w-full max-w-sm bg-gray-50 border border-gray-200 rounded-xl p-5 text-left flex flex-col gap-3 text-sm">
+          <InfoRow label="직원명" value={employee?.name ?? "-"} />
+          <InfoRow label="교육명" value={training.title} />
+          <InfoRow
+            label="이수 완료일시"
+            value={formatDateTime(assignment?.completed_at)}
+          />
+          {completedQuizCount !== null && (
+            <InfoRow
+              label="확인 문항 결과"
+              value={`${completedQuizCount}/${training.quizzes.length} 정답`}
+            />
+          )}
+        </div>
+
+        <div className="flex gap-3 w-full max-w-sm">
+          <button
+            onClick={() => window.close()}
+            className="flex-1 rounded-lg border border-gray-300 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          >
+            창 닫기
+          </button>
+        </div>
       </div>
     );
   }
@@ -240,9 +291,12 @@ export default function TrainingSession({ training }: { training: Training }) {
           className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm flex flex-col gap-5"
         >
           <div>
-            <h2 className="text-lg font-bold text-gray-900">직원 본인 확인</h2>
+            <h2 className="text-lg font-bold text-gray-900">
+              교육 대상자 본인 확인
+            </h2>
             <p className="text-sm text-gray-500 mt-1 leading-relaxed">
-              교육 이수 기록을 정확히 남기기 위해<br />
+              안전교육 이수 기록을 정확히 남기기 위해
+              <br />
               이름과 전화번호 뒷자리를 입력해주세요.
             </p>
           </div>
@@ -279,7 +333,7 @@ export default function TrainingSession({ training }: { training: Training }) {
             loading={verifying}
             className="w-full py-3 text-base"
           >
-            교육 참여 확인
+            교육 시작하기
           </Button>
         </form>
       )}
@@ -475,7 +529,7 @@ export default function TrainingSession({ training }: { training: Training }) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="w-24 shrink-0 text-gray-500">{label}</span>
+      <span className="w-28 shrink-0 text-gray-500">{label}</span>
       <span className="font-medium text-gray-900">{value}</span>
     </div>
   );
