@@ -27,7 +27,7 @@ export default async function ReportsPage() {
 
       {!trainings || trainings.length === 0 ? (
         <div className="rounded-xl bg-white border border-gray-200 p-12 text-center">
-          <p className="text-gray-400 text-sm">생성된 교육이 없습니다.</p>
+          <p className="text-gray-400 text-sm">등록된 안전교육이 없습니다.</p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">

@@ -86,7 +86,7 @@ export default function NewTrainingPage() {
           ← 교육 목록
         </Link>
         <span className="text-gray-300">/</span>
-        <h1 className="text-xl font-bold text-gray-900">안전교육 생성</h1>
+        <h1 className="text-xl font-bold text-gray-900">안전교육 등록</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">

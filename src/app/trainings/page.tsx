@@ -26,15 +26,15 @@ export default async function TrainingsPage() {
           </p>
         </div>
         <Link href="/trainings/new">
-          <Button>+ 교육 생성</Button>
+          <Button>+ 안전교육 등록</Button>
         </Link>
       </div>
 
       {!trainings || trainings.length === 0 ? (
         <div className="rounded-xl bg-white border border-gray-200 p-12 text-center">
-          <p className="text-gray-400 text-sm">생성된 교육이 없습니다.</p>
+          <p className="text-gray-400 text-sm">등록된 안전교육이 없습니다.</p>
           <Link href="/trainings/new">
-            <Button className="mt-4">첫 교육 만들기</Button>
+            <Button className="mt-4">첫 안전교육 등록하기</Button>
           </Link>
         </div>
       ) : (
