@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+function isColumnError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { code?: string; message?: string };
+  return (
+    e.code === "42703" ||
+    (e.message?.includes("does not exist") ?? false)
+  );
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -21,14 +30,15 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminClient();
 
+    // select("*") 로 컬럼 유무와 무관하게 안전하게 조회
     const { data: assignment, error: fetchError } = await supabase
       .from("training_assignments")
-      .select("id, status, started_at")
+      .select("*")
       .eq("id", assignmentId)
       .single();
 
     if (fetchError || !assignment) {
-      console.error("Assignment fetch error:", fetchError);
+      console.error("[submit-training] Assignment fetch error:", JSON.stringify(fetchError));
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
 
@@ -37,10 +47,12 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date();
-    const durationSeconds = assignment.started_at
-      ? Math.round((now.getTime() - new Date(assignment.started_at).getTime()) / 1000)
+    const startedAt: string | null = assignment.started_at ?? null;
+    const durationSeconds = startedAt
+      ? Math.round((now.getTime() - new Date(startedAt).getTime()) / 1000)
       : null;
 
+    // 풀 업데이트 시도 (신규 컬럼 포함)
     const { error: updateError } = await supabase
       .from("training_assignments")
       .update({
@@ -54,13 +66,34 @@ export async function POST(req: NextRequest) {
       .eq("id", assignmentId);
 
     if (updateError) {
-      console.error("Assignment update error:", updateError);
-      return NextResponse.json({ error: "server_error" }, { status: 500 });
+      if (isColumnError(updateError)) {
+        // 신규 컬럼(completed_at, duration_seconds, consent_checked)이 없을 경우 fallback
+        console.warn("[submit-training] 신규 컬럼 없음, fallback update 시도. error:", JSON.stringify(updateError));
+
+        const { error: fallbackErr } = await supabase
+          .from("training_assignments")
+          .update({
+            status: "completed",
+            quiz_answers: quizAnswers,
+            signature_data: signatureData,
+          })
+          .eq("id", assignmentId);
+
+        if (fallbackErr) {
+          console.error("[submit-training] Fallback update error:", JSON.stringify(fallbackErr));
+          return NextResponse.json({ error: "server_error" }, { status: 500 });
+        }
+
+        console.warn("[submit-training] Fallback 성공. DB 마이그레이션 필요: completed_at, duration_seconds, consent_checked 컬럼 추가 필요");
+      } else {
+        console.error("[submit-training] Assignment update error:", JSON.stringify(updateError));
+        return NextResponse.json({ error: "server_error" }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("submit-training unexpected error:", err);
+    console.error("[submit-training] Unexpected error:", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });
   }
 }
