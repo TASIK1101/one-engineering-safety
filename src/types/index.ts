@@ -19,6 +19,7 @@ export type Training = {
   description: string;
   content: string;
   quizzes: Quiz[];
+  training_type: string;
   created_at: string;
 };
 

@@ -8,6 +8,7 @@ import Input from "@/components/ui/Input";
 import Textarea from "@/components/ui/Textarea";
 import Link from "next/link";
 import type { Quiz } from "@/types";
+import { TRAINING_TYPE_OPTIONS } from "@/lib/training-types";
 
 const emptyQuiz = (): Quiz => ({ question: "", answer: "O" });
 
@@ -19,6 +20,7 @@ export default function NewTrainingPage() {
     title: "",
     description: "",
     content: "",
+    training_type: "regular_training",
   });
   const [quizzes, setQuizzes] = useState<Quiz[]>([
     emptyQuiz(),
@@ -29,7 +31,7 @@ export default function NewTrainingPage() {
   const [loading, setLoading] = useState(false);
 
   function handleFormChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
@@ -64,6 +66,7 @@ export default function NewTrainingPage() {
       description: form.description.trim(),
       content: form.content.trim(),
       quizzes,
+      training_type: form.training_type,
     });
 
     if (dbError) {
@@ -93,6 +96,27 @@ export default function NewTrainingPage() {
         {/* 기본 정보 */}
         <section className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm flex flex-col gap-4">
           <h2 className="font-semibold text-gray-800">기본 정보</h2>
+
+          {/* 교육 유형 선택 */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-gray-700">
+              교육 유형 <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="training_type"
+              value={form.training_type}
+              onChange={handleFormChange}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              required
+            >
+              {TRAINING_TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <Input
             label="교육 제목 *"
             name="title"

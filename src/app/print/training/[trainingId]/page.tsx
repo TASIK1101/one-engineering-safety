@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import PrintButton from "./PrintButton";
 import type { Employee, Training, TrainingAssignment } from "@/types";
+import { getTypeLabel } from "@/lib/training-types";
 
 type AssignmentWithEmployee = TrainingAssignment & { employees: Employee };
 
@@ -141,10 +142,16 @@ export default async function PrintTrainingPage({
               </td>
             </tr>
             <tr>
-              <th style={thStyle}>교육 목적</th>
-              <td style={tdStyle}>{t.description || "-"}</td>
+              <th style={thStyle}>교육 유형</th>
+              <td style={tdStyle}>
+                {getTypeLabel(t.training_type ?? "regular_training")}
+              </td>
               <th style={thStyle}>출력일자</th>
               <td style={tdStyle}>{printDate}</td>
+            </tr>
+            <tr>
+              <th style={thStyle}>교육 목적</th>
+              <td style={tdStyle} colSpan={3}>{t.description || "-"}</td>
             </tr>
             <tr>
               <th style={thStyle}>전체 대상자</th>

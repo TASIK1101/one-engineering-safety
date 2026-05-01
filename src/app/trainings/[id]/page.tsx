@@ -6,6 +6,7 @@ import Link from "next/link";
 import ShareLinkBox from "@/components/admin/ShareLinkBox";
 import CompletionTable from "@/components/admin/CompletionTable";
 import type { Training, TrainingAssignment } from "@/types";
+import { getTypeLabel, getTypeColor } from "@/lib/training-types";
 
 export default async function TrainingDetailPage({
   params,
@@ -58,9 +59,18 @@ export default async function TrainingDetailPage({
             ← 교육 목록
           </Link>
           <span className="text-gray-300">/</span>
-          <h1 className="text-xl font-bold text-gray-900 truncate">
-            {t.title}
-          </h1>
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className={`shrink-0 inline-flex text-[11px] font-medium px-2 py-0.5 rounded-full border ${getTypeColor(
+                t.training_type ?? "regular_training"
+              )}`}
+            >
+              {getTypeLabel(t.training_type ?? "regular_training")}
+            </span>
+            <h1 className="text-xl font-bold text-gray-900 truncate">
+              {t.title}
+            </h1>
+          </div>
         </div>
         <Link
           href={`/print/training/${id}`}
