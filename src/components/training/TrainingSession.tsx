@@ -87,10 +87,25 @@ export default function TrainingSession({ training }: { training: Training }) {
 
       const data = await res.json();
 
-      if (res.status === 404 || data.error === "not_found") {
+      // 오류 코드별 세분화
+      if (data.error === "not_found" || res.status === 404) {
         setVerifyError(
           "등록된 교육 대상자 정보를 찾을 수 없습니다. 이름과 전화번호 뒷자리를 다시 확인해주세요."
         );
+        setVerifying(false);
+        return;
+      }
+
+      if (data.error === "training_not_found") {
+        setVerifyError(
+          "교육 정보를 찾을 수 없습니다. 링크가 올바른지 확인하거나 관리자에게 문의해주세요."
+        );
+        setVerifying(false);
+        return;
+      }
+
+      if (data.error === "invalid_input") {
+        setVerifyError("입력 정보를 다시 확인해주세요.");
         setVerifying(false);
         return;
       }
@@ -101,7 +116,7 @@ export default function TrainingSession({ training }: { training: Training }) {
         return;
       }
 
-      if (data.assignment.status === "completed") {
+      if (data.assignment?.status === "completed") {
         setEmployee(data.employee);
         setAssignment(data.assignment);
         setStep("already_done");

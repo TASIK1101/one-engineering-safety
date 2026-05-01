@@ -5,14 +5,14 @@ import { v4 as uuidv4 } from "uuid";
 function isColumnError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
   const e = err as { code?: string; message?: string };
-  return (
-    e.code === "42703" ||
-    (e.message?.includes("does not exist") ?? false)
-  );
+  return e.code === "42703" || (e.message?.includes("does not exist") ?? false);
 }
 
 export async function POST(req: NextRequest) {
+  let step = "init";
   try {
+    // ── 1. 입력 파싱 ──────────────────────────────────────────
+    step = "parse_body";
     const body = await req.json();
     const { trainingId, name, phoneLast4 } = body as {
       trainingId: string;
@@ -20,18 +20,20 @@ export async function POST(req: NextRequest) {
       phoneLast4: string;
     };
 
-    if (
-      !trainingId ||
-      !name?.trim() ||
-      !phoneLast4 ||
-      !/^\d{4}$/.test(phoneLast4)
-    ) {
+    console.log(`[verify-employee] 요청: trainingId=${trainingId}, name=${name}, phoneLast4=${phoneLast4}`);
+
+    if (!trainingId || !name?.trim() || !phoneLast4 || !/^\d{4}$/.test(phoneLast4)) {
+      console.warn("[verify-employee] 입력값 유효성 실패");
       return NextResponse.json({ error: "invalid_input" }, { status: 400 });
     }
 
+    // ── 2. admin 클라이언트 생성 ──────────────────────────────
+    step = "create_admin_client";
     const supabase = createAdminClient();
+    console.log("[verify-employee] admin 클라이언트 생성 성공");
 
-    // 교육 조회 - select("*") 로 컬럼 유무에 관계없이 안전하게 조회
+    // ── 3. 교육 조회 ──────────────────────────────────────────
+    step = "fetch_training";
     const { data: training, error: trainingError } = await supabase
       .from("trainings")
       .select("id, admin_id")
@@ -39,11 +41,13 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (trainingError || !training) {
-      console.error("[verify-employee] Training lookup error:", JSON.stringify(trainingError));
+      console.error(`[verify-employee] 교육 조회 실패: ${JSON.stringify(trainingError)}`);
       return NextResponse.json({ error: "training_not_found" }, { status: 404 });
     }
+    console.log(`[verify-employee] 교육 조회 성공: admin_id=${training.admin_id}`);
 
-    // 직원 조회
+    // ── 4. 직원 조회 ──────────────────────────────────────────
+    step = "fetch_employee";
     const { data: candidates, error: empError } = await supabase
       .from("employees")
       .select("id, name, phone, department")
@@ -51,25 +55,36 @@ export async function POST(req: NextRequest) {
       .eq("name", name.trim());
 
     if (empError) {
-      console.error("[verify-employee] Employee lookup error:", JSON.stringify(empError));
+      console.error(`[verify-employee] 직원 조회 DB 오류: ${JSON.stringify(empError)}`);
       return NextResponse.json({ error: "server_error" }, { status: 500 });
     }
 
+    console.log(`[verify-employee] 이름 매칭 직원 수: ${candidates?.length ?? 0}`);
+
     if (!candidates?.length) {
+      console.warn(`[verify-employee] 이름 매칭 없음: name=${name}`);
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
 
+    // ── 5. 전화번호 뒷자리 매칭 ──────────────────────────────
+    step = "match_phone";
     const matched = candidates.find(
       (emp) => emp.phone.replace(/\D/g, "").slice(-4) === phoneLast4
     );
 
     if (!matched) {
+      console.warn(
+        `[verify-employee] 전화번호 뒷자리 불일치: phoneLast4=${phoneLast4}, ` +
+        `후보들=${candidates.map((e) => e.phone.replace(/\D/g, "").slice(-4)).join(",")}`
+      );
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
+    console.log(`[verify-employee] 직원 매칭 성공: employee_id=${matched.id}`);
 
     const now = new Date().toISOString();
 
-    // assignment 조회 - select("*") 사용: 컬럼이 없어도 SELECT 자체는 성공
+    // ── 6. assignment 조회 (employee_id + training_id 기준) ──
+    step = "fetch_assignment";
     const { data: existing, error: assignError } = await supabase
       .from("training_assignments")
       .select("*")
@@ -78,15 +93,17 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (assignError) {
-      console.error("[verify-employee] Assignment lookup error:", JSON.stringify(assignError));
+      console.error(`[verify-employee] assignment 조회 오류: ${JSON.stringify(assignError)}`);
       return NextResponse.json({ error: "server_error" }, { status: 500 });
     }
+    console.log(`[verify-employee] assignment 조회 결과: ${existing ? `status=${existing.status}` : "없음"}`);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let assignment: any;
 
     if (!existing) {
-      // 신규 assignment 생성 - started_at 포함 시도, 없으면 fallback
+      // ── 7a. 신규 assignment 생성 ────────────────────────────
+      step = "insert_assignment";
       const { data: created, error: insertError } = await supabase
         .from("training_assignments")
         .insert({
@@ -101,8 +118,7 @@ export async function POST(req: NextRequest) {
 
       if (insertError) {
         if (isColumnError(insertError)) {
-          // started_at 컬럼이 없을 경우 fallback: 기본 컬럼만으로 생성
-          console.warn("[verify-employee] started_at 컬럼 없음, fallback insert 시도");
+          console.warn(`[verify-employee] started_at 컬럼 없음, fallback insert: ${JSON.stringify(insertError)}`);
           const { data: fallback, error: fallbackErr } = await supabase
             .from("training_assignments")
             .insert({
@@ -115,19 +131,21 @@ export async function POST(req: NextRequest) {
             .single();
 
           if (fallbackErr || !fallback) {
-            console.error("[verify-employee] Fallback insert error:", JSON.stringify(fallbackErr));
+            console.error(`[verify-employee] fallback insert 실패: ${JSON.stringify(fallbackErr)}`);
             return NextResponse.json({ error: "server_error" }, { status: 500 });
           }
           assignment = fallback;
         } else {
-          console.error("[verify-employee] Assignment insert error:", JSON.stringify(insertError));
+          console.error(`[verify-employee] assignment insert 오류: ${JSON.stringify(insertError)}`);
           return NextResponse.json({ error: "server_error" }, { status: 500 });
         }
       } else {
         assignment = created;
+        console.log(`[verify-employee] 신규 assignment 생성: id=${assignment.id}`);
       }
     } else if (existing.status === "pending") {
-      // 기존 미이수 → started_at 갱신 시도, 없으면 현상 유지
+      // ── 7b. 기존 미이수 → started_at 갱신 ──────────────────
+      step = "update_assignment";
       const { data: updated, error: updateError } = await supabase
         .from("training_assignments")
         .update({ started_at: now })
@@ -137,18 +155,20 @@ export async function POST(req: NextRequest) {
 
       if (updateError) {
         if (isColumnError(updateError)) {
-          console.warn("[verify-employee] started_at 컬럼 없음, update 건너뜀");
+          console.warn(`[verify-employee] started_at 컬럼 없음, update 건너뜀: ${JSON.stringify(updateError)}`);
           assignment = existing;
         } else {
-          console.error("[verify-employee] Assignment update error:", JSON.stringify(updateError));
+          console.error(`[verify-employee] assignment update 오류: ${JSON.stringify(updateError)}`);
           return NextResponse.json({ error: "server_error" }, { status: 500 });
         }
       } else {
         assignment = updated;
+        console.log(`[verify-employee] started_at 갱신: id=${assignment.id}`);
       }
     } else {
-      // 이미 이수 완료
+      // ── 7c. 이미 이수 완료 ───────────────────────────────────
       assignment = existing;
+      console.log(`[verify-employee] 이미 완료: id=${assignment.id}`);
     }
 
     return NextResponse.json({
@@ -166,7 +186,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
-    console.error("[verify-employee] Unexpected error:", err);
+    console.error(`[verify-employee] 예외 발생 (step=${step}):`, err instanceof Error ? err.message : String(err));
     return NextResponse.json({ error: "server_error" }, { status: 500 });
   }
 }
