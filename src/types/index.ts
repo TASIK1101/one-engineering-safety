@@ -29,6 +29,10 @@ export type Training = {
   ppe_check: string | null;
   daily_notice: string | null;
   instructor: string | null;
+  // 교육 담당자 확인 필드
+  confirmed_at: string | null;
+  confirmed_by: string | null;
+  confirmation_memo: string | null;
 };
 
 export type TrainingAssignment = {

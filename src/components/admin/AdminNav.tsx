@@ -10,7 +10,8 @@ const navItems = [
   { href: "/dashboard", label: "대시보드" },
   { href: "/employees", label: "교육 대상자 관리" },
   { href: "/trainings", label: "안전교육 관리" },
-  { href: "/reports", label: "교육 이수 기록 출력" },
+  { href: "/records", label: "교육기록 보관함" },
+  { href: "/reports", label: "이수기록 출력" },
 ];
 
 export default function AdminNav() {

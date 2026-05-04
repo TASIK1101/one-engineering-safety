@@ -6,6 +6,8 @@ import Link from "next/link";
 import ShareLinkBox from "@/components/admin/ShareLinkBox";
 import CompletionTable from "@/components/admin/CompletionTable";
 import DuplicateTrainingButton from "@/components/admin/DuplicateTrainingButton";
+import TrainingConfirmBox from "@/components/admin/TrainingConfirmBox";
+import EvidenceStatus from "@/components/admin/EvidenceStatus";
 import type { Training, TrainingAssignment } from "@/types";
 import { getTypeLabel, getTypeColor } from "@/lib/training-types";
 
@@ -48,6 +50,9 @@ export default async function TrainingDetailPage({
   ).length;
   const totalCount = employees?.length ?? 0;
   const pendingCount = totalCount - completedCount;
+  const hasSignatures = allAssignments.some(
+    (a) => a.status === "completed" && a.signature_data
+  );
 
   return (
     <div className="max-w-3xl">
@@ -92,6 +97,16 @@ export default async function TrainingDetailPage({
         </div>
       </div>
 
+      {/* 증빙 상태 */}
+      <EvidenceStatus
+        hasContent={!!t.content}
+        hasEmployees={totalCount > 0}
+        completedCount={completedCount}
+        totalCount={totalCount}
+        hasSignatures={hasSignatures}
+        hasConfirmation={!!t.confirmed_at}
+      />
+
       {/* 교육 요약 카드 */}
       <div className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm mb-5">
         <h2 className="font-semibold text-gray-800 mb-4">교육 정보</h2>
@@ -124,12 +139,8 @@ export default async function TrainingDetailPage({
         {/* 작업 전 안전교육 전용 정보 블록 */}
         {isPreWork && (
           <div className="mb-4 rounded-lg bg-green-50 border border-green-200 p-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-            {t.work_date && (
-              <InfoRow label="작업일" value={t.work_date} />
-            )}
-            {t.work_name && (
-              <InfoRow label="작업명" value={t.work_name} />
-            )}
+            {t.work_date && <InfoRow label="작업일" value={t.work_date} />}
+            {t.work_name && <InfoRow label="작업명" value={t.work_name} />}
             {t.work_location && (
               <InfoRow label="작업 장소" value={t.work_location} />
             )}
@@ -176,8 +187,16 @@ export default async function TrainingDetailPage({
         )}
       </div>
 
-      {/* 교육 참여 링크 */}
+      {/* 교육 참여 링크 (QR 포함) */}
       <ShareLinkBox trainingId={id} trainingTitle={t.title} />
+
+      {/* 교육 담당자 확인 */}
+      <TrainingConfirmBox
+        trainingId={id}
+        confirmedAt={t.confirmed_at}
+        confirmedBy={t.confirmed_by}
+        confirmationMemo={t.confirmation_memo}
+      />
 
       {/* 직원별 이수 현황 */}
       <CompletionTable

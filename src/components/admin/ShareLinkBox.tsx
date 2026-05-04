@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Button from "@/components/ui/Button";
+import QRCodeBox from "./QRCodeBox";
 
 export default function ShareLinkBox({
   trainingId,
@@ -51,6 +52,9 @@ export default function ShareLinkBox({
           직원 화면 미리보기
         </Button>
       </div>
+
+      {/* QR 코드 */}
+      <QRCodeBox shareUrl={shareUrl} />
     </div>
   );
 }

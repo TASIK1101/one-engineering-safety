@@ -327,6 +327,43 @@ export default async function PrintTrainingPage({
           </table>
         </div>
 
+        {/* ── 교육 담당자 확인란 ── */}
+        <div style={{ marginBottom: "20px" }}>
+          <h2 style={sectionTitleStyle}>교육 담당자 확인</h2>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+            <tbody>
+              <tr>
+                <th style={thStyle}>교육 담당자</th>
+                <td style={tdStyle}>{t.confirmed_by || (t.instructor ?? "-")}</td>
+                <th style={thStyle}>확인일시</th>
+                <td style={tdStyle}>
+                  {t.confirmed_at
+                    ? new Date(t.confirmed_at).toLocaleString("ko-KR")
+                    : "-"}
+                </td>
+              </tr>
+              <tr>
+                <th style={thStyle}>확인 메모</th>
+                <td style={{ ...tdStyle, whiteSpace: "pre-wrap" }} colSpan={3}>
+                  {t.confirmation_memo || "-"}
+                </td>
+              </tr>
+              <tr>
+                <th style={thStyle}>관리자 확인란</th>
+                <td style={{ ...tdStyle, height: "50px" }} colSpan={3}>
+                  {t.confirmed_at ? (
+                    <span style={{ color: "#166534", fontWeight: "bold" }}>
+                      ✓ 확인 완료
+                    </span>
+                  ) : (
+                    <span style={{ color: "#aaa" }}>미확인 (서명란)</span>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
         {/* ── 하단 안내 문구 ── */}
         <div style={{
           border: "1px solid #ddd",

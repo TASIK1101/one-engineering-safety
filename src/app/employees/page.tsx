@@ -64,7 +64,12 @@ export default async function EmployeesPage() {
               {employees.map((emp) => (
                 <tr key={emp.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">
-                    {emp.name}
+                    <Link
+                      href={`/employees/${emp.id}`}
+                      className="text-blue-700 hover:underline"
+                    >
+                      {emp.name}
+                    </Link>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{emp.phone}</td>
                   <td className="px-4 py-3 text-gray-600">
@@ -73,7 +78,13 @@ export default async function EmployeesPage() {
                   <td className="px-4 py-3 text-gray-400">
                     {new Date(emp.created_at).toLocaleDateString("ko-KR")}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
+                    <Link
+                      href={`/employees/${emp.id}`}
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      교육 이력
+                    </Link>
                     <DeleteEmployeeButton id={emp.id} name={emp.name} />
                   </td>
                 </tr>
