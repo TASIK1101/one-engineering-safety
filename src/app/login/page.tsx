@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import Image from "next/image";
+import LogoMark from "@/components/ui/LogoMark";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,14 +37,7 @@ export default function LoginPage() {
 
         {/* 회사 브랜드 영역 */}
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
-          <Image
-            src="/logo.png"
-            alt="주식회사 원엔지니어링"
-            width={72}
-            height={72}
-            priority
-            className="object-contain rounded-full"
-          />
+          <LogoMark size={72} />
           <div>
             <p className="text-[11px] font-semibold tracking-widest text-slate-400 uppercase mb-1">
               One Engineering

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import Image from "next/image";
+import LogoMark from "@/components/ui/LogoMark";
 import TrainingSession from "@/components/training/TrainingSession";
 import type { Training } from "@/types";
 
@@ -26,13 +26,7 @@ export default async function TrainingPage({
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="max-w-xl mx-auto flex items-center gap-3">
-          <Image
-            src="/logo.png"
-            alt="주식회사 원엔지니어링"
-            width={40}
-            height={40}
-            className="rounded-full object-contain shrink-0"
-          />
+          <LogoMark size={40} />
           <div className="min-w-0">
             <p className="text-[11px] text-gray-400 leading-none mb-0.5">
               주식회사 원엔지니어링 · 안전교육
