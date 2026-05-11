@@ -34,10 +34,17 @@ export default async function EmployeesPage() {
       </div>
 
       {!employees || employees.length === 0 ? (
-        <div className="rounded-xl bg-white border border-gray-200 p-12 text-center">
-          <p className="text-gray-400 text-sm">등록된 교육 대상자가 없습니다.</p>
+        <div className="rounded-xl bg-white border border-gray-200 p-14 text-center">
+          <div className="text-4xl mb-4">👤</div>
+          <p className="text-gray-700 font-semibold text-base mb-1">
+            등록된 교육 대상자가 없습니다
+          </p>
+          <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+            교육에 참여할 직원을 먼저 등록해 주세요.<br />
+            이름과 전화번호 뒷 4자리로 본인 확인이 진행됩니다.
+          </p>
           <Link href="/employees/new">
-            <Button className="mt-4">첫 대상자 등록하기</Button>
+            <Button>+ 첫 대상자 등록하기</Button>
           </Link>
         </div>
       ) : (

@@ -62,22 +62,34 @@ export default async function TrainingsPage({
       </Suspense>
 
       {!trainings || trainings.length === 0 ? (
-        <div className="rounded-xl bg-white border border-gray-200 p-12 text-center">
-          <p className="text-gray-400 text-sm">
-            {type
-              ? `해당 유형의 안전교육이 없습니다.`
-              : "등록된 안전교육이 없습니다."}
+        <div className="rounded-xl bg-white border border-gray-200 p-14 text-center">
+          <div className="text-4xl mb-4">
+            {isPreWorkTab ? "🌅" : "📋"}
+          </div>
+          <p className="text-gray-700 font-semibold text-base mb-1">
+            {isPreWorkTab
+              ? "등록된 작업 전 안전교육이 없습니다"
+              : type
+              ? "해당 유형의 안전교육이 없습니다"
+              : "등록된 안전교육이 없습니다"}
+          </p>
+          <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+            {isPreWorkTab
+              ? "오늘 날짜 기준 새 작업 전 안전교육을 등록하고\n교육 링크를 생성하세요."
+              : type
+              ? "다른 유형을 선택하거나 새 교육을 등록해 주세요."
+              : "첫 안전교육을 등록하고 교육 링크를 대상자에게 공유해 보세요."}
           </p>
           {isPreWorkTab ? (
             <Link href="/trainings/new?type=pre_work_training">
-              <Button className="mt-4 bg-green-600 hover:bg-green-700">
+              <Button className="bg-green-600 hover:bg-green-700">
                 오늘 작업 전 안전교육 만들기
               </Button>
             </Link>
           ) : (
             !type && (
               <Link href="/trainings/new">
-                <Button className="mt-4">첫 안전교육 등록하기</Button>
+                <Button>+ 첫 안전교육 등록하기</Button>
               </Link>
             )
           )}

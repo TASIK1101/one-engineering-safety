@@ -5,6 +5,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import SignatureCanvas, { type SignatureHandle } from "./SignatureCanvas";
 import type { Quiz, Training } from "@/types";
+import { getTypeLabel } from "@/lib/training-types";
 
 type Step =
   | "verify"
@@ -35,6 +36,15 @@ function formatDateTime(iso: string | null | undefined): string {
   });
 }
 
+// 단계 레이블 매핑
+const STEP_LABELS: Partial<Record<Step, string>> = {
+  verify: "1/4  본인 확인",
+  confirmed: "1/4  본인 확인",
+  content: "2/4  교육 내용 확인",
+  quiz: "3/4  교육 확인 문항",
+  sign: "4/4  전자서명",
+};
+
 export default function TrainingSession({ training }: { training: Training }) {
   const sigRef = useRef<SignatureHandle>(null);
 
@@ -58,10 +68,11 @@ export default function TrainingSession({ training }: { training: Training }) {
   const [consentChecked, setConsentChecked] = useState(false);
   const [signError, setSignError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [completedAt, setCompletedAt] = useState<string | null>(null);
 
   const quizzes: Quiz[] = training.quizzes;
 
-  // ── 본인 확인 ────────────────────────────────────────────
+  // ── 본인 확인 ──────────────────────────────────────────────
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
     setVerifying(true);
@@ -87,15 +98,13 @@ export default function TrainingSession({ training }: { training: Training }) {
 
       const data = await res.json();
 
-      // 오류 코드별 세분화
       if (data.error === "not_found" || res.status === 404) {
         setVerifyError(
-          "등록된 교육 대상자 정보를 찾을 수 없습니다. 이름과 전화번호 뒷자리를 다시 확인해주세요."
+          "등록된 교육 대상자 정보를 찾을 수 없습니다.\n이름과 전화번호 뒷자리를 다시 확인해주세요."
         );
         setVerifying(false);
         return;
       }
-
       if (data.error === "training_not_found") {
         setVerifyError(
           "교육 정보를 찾을 수 없습니다. 링크가 올바른지 확인하거나 관리자에게 문의해주세요."
@@ -103,13 +112,11 @@ export default function TrainingSession({ training }: { training: Training }) {
         setVerifying(false);
         return;
       }
-
       if (data.error === "invalid_input") {
         setVerifyError("입력 정보를 다시 확인해주세요.");
         setVerifying(false);
         return;
       }
-
       if (!res.ok) {
         setVerifyError("서버 오류가 발생했습니다. 관리자에게 문의해주세요.");
         setVerifying(false);
@@ -135,7 +142,7 @@ export default function TrainingSession({ training }: { training: Training }) {
     }
   }
 
-  // ── 교육 확인 문항 ────────────────────────────────────────
+  // ── 교육 확인 문항 ─────────────────────────────────────────
   function handleAnswer(index: number, value: "O" | "X") {
     setAnswers((prev) => prev.map((a, i) => (i === index ? value : a)));
     setQuizError("");
@@ -149,7 +156,7 @@ export default function TrainingSession({ training }: { training: Training }) {
     setStep("sign");
   }
 
-  // ── 최종 제출 ─────────────────────────────────────────────
+  // ── 최종 제출 ──────────────────────────────────────────────
   async function handleSubmit() {
     if (!consentChecked) {
       setSignError("동의 체크박스를 선택해주세요.");
@@ -181,13 +188,13 @@ export default function TrainingSession({ training }: { training: Training }) {
         setSubmitting(false);
         return;
       }
-
       if (!res.ok) {
         setSignError("제출 중 오류가 발생했습니다. 다시 시도해주세요.");
         setSubmitting(false);
         return;
       }
 
+      setCompletedAt(new Date().toISOString());
       setStep("done");
     } catch (err) {
       console.error("submit error:", err);
@@ -196,55 +203,42 @@ export default function TrainingSession({ training }: { training: Training }) {
     }
   }
 
-  // ── 진행 단계 표시 ────────────────────────────────────────
-  const stepOrder: Step[] = ["verify", "content", "quiz", "sign"];
-  const currentIndex = stepOrder.indexOf(
-    step === "confirmed" ? "verify" : step
-  );
-  const stepLabels = ["본인 확인", "교육 내용", "문항 응답", "서명"];
-
   // ══════════════════════════════════════════════════════════
 
+  // ── 이미 이수 완료 화면 ──
   if (step === "already_done") {
-    const completedQuizCount =
-      assignment?.quiz_answers && training.quizzes.length > 0
-        ? assignment.quiz_answers.filter(
-            (ans, i) => ans === training.quizzes[i]?.answer
-          ).length
-        : null;
-
     return (
-      <div className="rounded-xl bg-white border border-gray-200 p-8 shadow-sm flex flex-col items-center text-center gap-5">
-        <div className="text-6xl">✅</div>
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 mb-1">
-            이미 이수 완료된 교육입니다
-          </h2>
-          <p className="text-sm text-gray-500">
-            해당 교육은 이미 이수 완료 처리되었습니다. 추가 제출은 필요하지
-            않습니다.
-          </p>
+      <div className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-green-600 px-6 py-5 text-center">
+          <span className="text-4xl">✅</span>
         </div>
+        <div className="px-6 py-6 flex flex-col items-center text-center gap-5">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-1">
+              이미 이수 완료된 교육입니다.
+            </h2>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              해당 교육은 이미 이수 완료 처리되었습니다.<br />
+              추가 제출은 필요하지 않습니다.
+            </p>
+          </div>
 
-        <div className="w-full max-w-sm bg-gray-50 border border-gray-200 rounded-xl p-5 text-left flex flex-col gap-3 text-sm">
-          <InfoRow label="직원명" value={employee?.name ?? "-"} />
-          <InfoRow label="교육명" value={training.title} />
-          <InfoRow
-            label="이수 완료일시"
-            value={formatDateTime(assignment?.completed_at)}
-          />
-          {completedQuizCount !== null && (
+          <div className="w-full bg-gray-50 border border-gray-200 rounded-xl p-5 text-left flex flex-col gap-3">
+            <InfoRow label="직원명" value={employee?.name ?? "-"} />
+            <InfoRow label="교육명" value={training.title} />
             <InfoRow
-              label="확인 문항 결과"
-              value={`${completedQuizCount}/${training.quizzes.length} 정답`}
+              label="교육 유형"
+              value={getTypeLabel(training.training_type ?? "regular_training")}
             />
-          )}
-        </div>
+            <InfoRow
+              label="이수 완료일시"
+              value={formatDateTime(assignment?.completed_at)}
+            />
+          </div>
 
-        <div className="flex gap-3 w-full max-w-sm">
           <button
             onClick={() => window.close()}
-            className="flex-1 rounded-lg border border-gray-300 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            className="w-full rounded-xl border border-gray-300 py-3.5 text-base font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 transition-colors"
           >
             창 닫기
           </button>
@@ -253,92 +247,126 @@ export default function TrainingSession({ training }: { training: Training }) {
     );
   }
 
+  // ── 제출 완료 화면 ──
   if (step === "done") {
     return (
-      <div className="text-center py-16">
-        <div className="text-6xl mb-6">✅</div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-3">
-          교육 이수 완료!
-        </h2>
-        <p className="text-gray-600">
-          <strong>{employee?.name}</strong>님의 안전교육 이수 기록 및
-          전자서명이 정상적으로 저장되었습니다.
-        </p>
-        <p className="text-xs text-gray-400 mt-3">
-          이 화면을 캡처하거나 창을 닫으셔도 됩니다.
-        </p>
+      <div className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-blue-700 px-6 py-5 text-center">
+          <span className="text-4xl">🎉</span>
+        </div>
+        <div className="px-6 py-6 flex flex-col items-center text-center gap-5">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-1">
+              교육 이수 제출이 완료되었습니다.
+            </h2>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              교육 이수 기록과 전자서명이 저장되었습니다.
+            </p>
+          </div>
+
+          <div className="w-full bg-blue-50 border border-blue-100 rounded-xl p-5 text-left flex flex-col gap-3">
+            <InfoRow label="직원명" value={employee?.name ?? "-"} />
+            <InfoRow label="교육명" value={training.title} />
+            <InfoRow
+              label="교육 유형"
+              value={getTypeLabel(training.training_type ?? "regular_training")}
+            />
+            <InfoRow
+              label="제출 완료 시각"
+              value={formatDateTime(completedAt)}
+            />
+          </div>
+
+          <p className="text-xs text-gray-400">
+            이 화면을 캡처하거나 창을 닫으셔도 됩니다.
+          </p>
+          <button
+            onClick={() => window.close()}
+            className="w-full rounded-xl bg-blue-700 py-3.5 text-base font-semibold text-white hover:bg-blue-800 active:bg-blue-900 transition-colors"
+          >
+            창 닫기
+          </button>
+        </div>
       </div>
     );
   }
 
+  // ── 단계 진행 표시 ──
+  const stepLabel = STEP_LABELS[step] ?? "";
+
   return (
-    <div className="flex flex-col gap-5">
-      {/* 진행 단계 바 */}
-      <div className="flex items-center gap-1">
-        {stepLabels.map((label, i) => (
-          <div key={i} className="flex items-center gap-1 flex-1">
-            <div
-              className={`flex-1 text-center rounded-full px-2 py-1 text-xs font-medium transition-colors ${
-                i === currentIndex
-                  ? "bg-blue-600 text-white"
-                  : i < currentIndex
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-gray-100 text-gray-400"
-              }`}
-            >
-              {i < currentIndex ? `✓ ${label}` : `${i + 1}. ${label}`}
-            </div>
-            {i < stepLabels.length - 1 && (
-              <div
-                className={`w-2 h-px shrink-0 ${
-                  i < currentIndex ? "bg-blue-300" : "bg-gray-200"
-                }`}
-              />
-            )}
+    <div className="flex flex-col gap-4">
+      {/* 단계 표시 헤더 */}
+      {stepLabel && (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+            {/* 진행률 바 */}
+            {(() => {
+              const pct =
+                step === "verify" || step === "confirmed"
+                  ? 25
+                  : step === "content"
+                  ? 50
+                  : step === "quiz"
+                  ? 75
+                  : 100;
+              return (
+                <div
+                  className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                  style={{ width: `${pct}%` }}
+                />
+              );
+            })()}
           </div>
-        ))}
-      </div>
+          <span className="shrink-0 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 rounded-full px-3 py-1">
+            {stepLabel}
+          </span>
+        </div>
+      )}
 
       {/* ── STEP: 본인 확인 ── */}
       {step === "verify" && (
         <form
           onSubmit={handleVerify}
-          className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm flex flex-col gap-5"
+          className="rounded-2xl bg-white border border-gray-200 p-6 shadow-sm flex flex-col gap-5"
         >
           <div>
             <h2 className="text-lg font-bold text-gray-900">
               교육 대상자 본인 확인
             </h2>
             <p className="text-sm text-gray-500 mt-1 leading-relaxed">
-              안전교육 이수 기록을 정확히 남기기 위해
-              <br />
+              안전교육 이수 기록을 정확히 남기기 위해<br />
               이름과 전화번호 뒷자리를 입력해주세요.
             </p>
           </div>
 
-          <Input
-            label="이름"
-            placeholder="홍길동"
-            value={verifyName}
-            onChange={(e) => setVerifyName(e.target.value)}
-            required
-            autoFocus
-            autoComplete="name"
-          />
-          <Input
-            label="전화번호 뒷자리 4자리"
-            placeholder="1234"
-            value={verifyPhone}
-            onChange={(e) =>
-              setVerifyPhone(e.target.value.replace(/\D/g, "").slice(0, 4))
-            }
-            inputMode="numeric"
-            maxLength={4}
-            required
-          />
+          <div className="flex flex-col gap-4">
+            <Input
+              label="이름"
+              placeholder="홍길동"
+              value={verifyName}
+              onChange={(e) => setVerifyName(e.target.value)}
+              required
+              autoFocus
+              autoComplete="name"
+              className="py-3 text-base"
+            />
+            <Input
+              label="전화번호 뒷자리 4자리"
+              placeholder="1234"
+              value={verifyPhone}
+              onChange={(e) =>
+                setVerifyPhone(e.target.value.replace(/\D/g, "").slice(0, 4))
+              }
+              inputMode="numeric"
+              maxLength={4}
+              required
+              className="py-3 text-base tracking-widest"
+            />
+          </div>
 
           {verifyError && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3 leading-relaxed">
+            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl p-4 leading-relaxed whitespace-pre-line">
               {verifyError}
             </p>
           )}
@@ -346,7 +374,7 @@ export default function TrainingSession({ training }: { training: Training }) {
           <Button
             type="submit"
             loading={verifying}
-            className="w-full py-3 text-base"
+            className="w-full py-4 text-base font-semibold rounded-xl"
           >
             교육 시작하기
           </Button>
@@ -355,18 +383,18 @@ export default function TrainingSession({ training }: { training: Training }) {
 
       {/* ── STEP: 본인 확인 완료 ── */}
       {step === "confirmed" && employee && (
-        <div className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm flex flex-col gap-5">
-          <div className="flex items-center gap-3 bg-green-50 border border-green-100 rounded-lg p-4">
-            <span className="text-2xl">✅</span>
+        <div className="rounded-2xl bg-white border border-gray-200 p-6 shadow-sm flex flex-col gap-5">
+          <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
+            <span className="text-3xl">✅</span>
             <div>
-              <p className="font-semibold text-green-800">본인 확인 완료</p>
+              <p className="font-bold text-green-800 text-base">본인 확인 완료</p>
               <p className="text-sm text-green-700 mt-0.5">
                 아래 정보로 교육을 시작합니다.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 text-sm">
+          <div className="flex flex-col gap-3 text-base">
             <InfoRow label="이름" value={employee.name} />
             <InfoRow label="부서 / 직급" value={employee.department || "-"} />
             <InfoRow label="교육명" value={training.title} />
@@ -374,7 +402,7 @@ export default function TrainingSession({ training }: { training: Training }) {
 
           <Button
             onClick={() => setStep("content")}
-            className="w-full py-3 text-base"
+            className="w-full py-4 text-base font-semibold rounded-xl"
           >
             교육 내용 확인하기 →
           </Button>
@@ -384,30 +412,32 @@ export default function TrainingSession({ training }: { training: Training }) {
       {/* ── STEP: 교육 내용 ── */}
       {step === "content" && employee && (
         <div className="flex flex-col gap-4">
-          <div className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm flex flex-col gap-4">
+          <div className="rounded-2xl bg-white border border-gray-200 p-6 shadow-sm flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-gray-100">
-              <span className="font-semibold text-gray-900">{employee.name}</span>
+              <span className="font-semibold text-gray-900 text-base">{employee.name}</span>
               {employee.department && (
-                <span className="text-xs text-gray-500 bg-gray-100 rounded-full px-2.5 py-0.5">
+                <span className="text-xs text-gray-500 bg-gray-100 rounded-full px-2.5 py-1">
                   {employee.department}
                 </span>
               )}
             </div>
 
             {training.description && (
-              <p className="text-sm text-gray-500">{training.description}</p>
+              <p className="text-sm text-gray-500 border-l-4 border-blue-200 pl-3">
+                {training.description}
+              </p>
             )}
 
-            <div className="bg-gray-50 rounded-xl p-5 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed min-h-[120px]">
+            <div className="bg-gray-50 rounded-xl p-5 text-base text-gray-800 whitespace-pre-wrap leading-relaxed min-h-[140px] border border-gray-100">
               {training.content}
             </div>
           </div>
 
           <Button
             onClick={() => setStep("quiz")}
-            className="w-full py-3 text-base"
+            className="w-full py-4 text-base font-semibold rounded-xl"
           >
-            내용을 확인했습니다 → 교육 확인 문항 응답
+            내용을 확인했습니다 → 확인 문항 응답
           </Button>
         </div>
       )}
@@ -415,19 +445,19 @@ export default function TrainingSession({ training }: { training: Training }) {
       {/* ── STEP: 교육 확인 문항 ── */}
       {step === "quiz" && (
         <div className="flex flex-col gap-4">
-          <div className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm flex flex-col gap-6">
+          <div className="rounded-2xl bg-white border border-gray-200 p-6 shadow-sm flex flex-col gap-6">
             <div>
-              <h2 className="font-bold text-gray-900">교육 확인 문항</h2>
-              <p className="text-xs text-gray-500 mt-1">
-                아래 문항은 교육 내용을 확인하기 위한 절차입니다.
+              <h2 className="font-bold text-gray-900 text-lg">교육 확인 문항</h2>
+              <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                아래 문항은 교육 내용을 확인하기 위한 절차입니다.<br />
                 모든 문항에 응답한 뒤 전자서명을 진행해주세요.
               </p>
             </div>
             {quizzes.map((quiz, i) => (
-              <div key={i} className="flex flex-col gap-3">
-                <p className="text-sm font-medium text-gray-900 leading-relaxed">
-                  <span className="text-blue-600 font-bold mr-1.5">
-                    문항 {i + 1}.
+              <div key={i} className="flex flex-col gap-3 pb-5 border-b border-gray-100 last:border-0 last:pb-0">
+                <p className="text-base font-medium text-gray-900 leading-relaxed">
+                  <span className="inline-block text-blue-600 font-bold mr-1.5">
+                    {i + 1}.
                   </span>
                   {quiz.question}
                 </p>
@@ -437,11 +467,11 @@ export default function TrainingSession({ training }: { training: Training }) {
                       key={opt}
                       type="button"
                       onClick={() => handleAnswer(i, opt)}
-                      className={`flex-1 rounded-xl py-5 text-3xl border-2 transition-all active:scale-95 ${
+                      className={`flex-1 rounded-2xl py-6 text-4xl border-2 transition-all active:scale-95 ${
                         answers[i] === opt
                           ? opt === "O"
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-red-400 bg-red-50"
+                            ? "border-blue-500 bg-blue-50 shadow-md"
+                            : "border-red-400 bg-red-50 shadow-md"
                           : "border-gray-200 bg-white hover:border-gray-300"
                       }`}
                     >
@@ -454,20 +484,20 @@ export default function TrainingSession({ training }: { training: Training }) {
           </div>
 
           {quizError && (
-            <p className="text-sm text-red-600 text-center bg-red-50 border border-red-100 rounded-lg p-3">
+            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl p-4 text-center">
               {quizError}
             </p>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <Button
               variant="secondary"
               onClick={() => setStep("content")}
-              className="flex-1"
+              className="flex-1 py-3.5 text-base rounded-xl"
             >
               ← 이전
             </Button>
-            <Button onClick={handleQuizNext} className="flex-1 py-3">
+            <Button onClick={handleQuizNext} className="flex-1 py-3.5 text-base font-semibold rounded-xl">
               다음 → 전자서명
             </Button>
           </div>
@@ -477,14 +507,14 @@ export default function TrainingSession({ training }: { training: Training }) {
       {/* ── STEP: 전자서명 ── */}
       {step === "sign" && employee && (
         <div className="flex flex-col gap-4">
-          <div className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm flex flex-col gap-4">
-            <h2 className="font-bold text-gray-900">전자서명</h2>
+          <div className="rounded-2xl bg-white border border-gray-200 p-6 shadow-sm flex flex-col gap-5">
+            <h2 className="font-bold text-gray-900 text-lg">전자서명</h2>
 
-            <div className="rounded-lg bg-blue-50 border border-blue-100 p-4 text-sm text-blue-900 leading-relaxed">
+            <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 text-sm text-blue-900 leading-relaxed">
               본인(<strong>{employee.name}</strong>)은{" "}
               <strong>{new Date().toLocaleDateString("ko-KR")}</strong>에
-              주식회사 원엔지니어링의 안전교육을 성실히 이수하였음을 확인하고
-              서명합니다.
+              주식회사 원엔지니어링의 안전교육을 성실히 이수하였음을
+              확인하고 서명합니다.
             </div>
 
             <div>
@@ -495,7 +525,7 @@ export default function TrainingSession({ training }: { training: Training }) {
             </div>
 
             {/* 동의 체크박스 */}
-            <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-gray-200 bg-gray-50 p-4 active:bg-gray-100">
               <input
                 type="checkbox"
                 checked={consentChecked}
@@ -503,7 +533,7 @@ export default function TrainingSession({ training }: { training: Training }) {
                   setConsentChecked(e.target.checked);
                   if (e.target.checked) setSignError("");
                 }}
-                className="mt-0.5 h-4 w-4 rounded border-gray-400 text-blue-600 shrink-0"
+                className="mt-0.5 h-5 w-5 rounded border-gray-400 text-blue-600 shrink-0 cursor-pointer"
               />
               <span className="text-sm text-gray-700 leading-relaxed">
                 본인은 위 안전교육 내용을 직접 확인했으며, 교육 이수 기록 및
@@ -513,16 +543,16 @@ export default function TrainingSession({ training }: { training: Training }) {
           </div>
 
           {signError && (
-            <p className="text-sm text-red-600 text-center bg-red-50 border border-red-100 rounded-lg p-3">
+            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl p-4 text-center">
               {signError}
             </p>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <Button
               variant="secondary"
               onClick={() => setStep("quiz")}
-              className="flex-1"
+              className="flex-1 py-3.5 text-base rounded-xl"
             >
               ← 이전
             </Button>
@@ -530,7 +560,9 @@ export default function TrainingSession({ training }: { training: Training }) {
               onClick={handleSubmit}
               loading={submitting}
               disabled={!consentChecked}
-              className={`flex-1 py-3 ${!consentChecked ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`flex-1 py-3.5 text-base font-semibold rounded-xl ${
+                !consentChecked ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             >
               서명 후 제출
             </Button>
@@ -544,8 +576,8 @@ export default function TrainingSession({ training }: { training: Training }) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="w-28 shrink-0 text-gray-500">{label}</span>
-      <span className="font-medium text-gray-900">{value}</span>
+      <span className="w-28 shrink-0 text-gray-400 text-sm">{label}</span>
+      <span className="font-semibold text-gray-900">{value}</span>
     </div>
   );
 }
