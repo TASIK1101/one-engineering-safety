@@ -94,12 +94,19 @@ export default async function DashboardPage() {
             action="대상자 목록 보기"
           />
           <QuickLink
+            href="/tbm/new"
+            icon="🦺"
+            title="오늘 TBM 작성"
+            desc="작업 전 위험성평가 교육을 작성하고 참석자 서명을 받습니다."
+            action="TBM 작성하기"
+            highlight
+          />
+          <QuickLink
             href="/trainings/new?type=pre_work_training"
             icon="🌅"
             title="오늘 작업 전 안전교육 만들기"
             desc="오늘 날짜 기준 새 작업 전 안전교육을 등록하고 링크를 생성합니다."
             action="교육 만들기"
-            highlight
           />
           <QuickLink
             href="/trainings/new"

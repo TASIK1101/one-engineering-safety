@@ -5,48 +5,78 @@ import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { WORK_TYPES, DEFAULT_HAZARD_ITEMS } from "@/lib/tbm-work-types";
-import type { Employee } from "@/types";
+import type { Employee, Worksite } from "@/types";
 
 interface Props {
   employees: Employee[];
+  worksites: Worksite[];
 }
 
-export default function TBMNewForm({ employees }: Props) {
+export default function TBMNewForm({ employees, worksites }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const today = new Date().toISOString().split("T")[0];
 
+  // ── 기본 정보 ──────────────────────────────────────────────
   const [date, setDate] = useState(today);
   const [company, setCompany] = useState("");
+  const [worksiteId, setWorksiteId] = useState("");
   const [worksiteLocation, setWorksiteLocation] = useState("");
   const [workType, setWorkType] = useState("");
   const [processName, setProcessName] = useState("");
   const [supervisor, setSupervisor] = useState("");
   const [safetyManager, setSafetyManager] = useState("");
   const [siteManager, setSiteManager] = useState("");
+
+  // ── 위험요인 ───────────────────────────────────────────────
   const [hazardItems, setHazardItems] = useState<string[]>([]);
+  const [newHazardItem, setNewHazardItem] = useState("");
+
+  // ── 특이사항 ───────────────────────────────────────────────
   const [mainHazardNotes, setMainHazardNotes] = useState("");
   const [accidentCaseNotes, setAccidentCaseNotes] = useState("");
   const [educationDone, setEducationDone] = useState(true);
+
+  // ── 참석자 ─────────────────────────────────────────────────
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
   const [customAttendeeName, setCustomAttendeeName] = useState("");
   const [customAttendees, setCustomAttendees] = useState<string[]>([]);
-  const [newHazardItem, setNewHazardItem] = useState("");
 
-  // 공종 선택 시 기본 위험요인 불러오기
+  // 공종 선택 시 기본 위험요인 자동 로드
   useEffect(() => {
     if (workType) {
       setHazardItems([...DEFAULT_HAZARD_ITEMS]);
     }
   }, [workType]);
 
+  // worksite 선택 시 location 자동 채우기
+  const handleWorksiteChange = (id: string) => {
+    setWorksiteId(id);
+    if (id) {
+      const ws = worksites.find((w) => w.id === id);
+      setWorksiteLocation(ws?.location ?? ws?.site_name ?? "");
+    } else {
+      setWorksiteLocation("");
+    }
+  };
+
+  // ── 참석자 헬퍼 ────────────────────────────────────────────
+  const allEmployeeNames = employees.map((e) => e.name);
+
   const toggleAttendee = (name: string) => {
     setSelectedAttendees((prev) =>
       prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
     );
   };
+
+  const selectAll = () => {
+    const all = [...allEmployeeNames, ...customAttendees];
+    setSelectedAttendees(all);
+  };
+
+  const clearAll = () => setSelectedAttendees([]);
 
   const addCustomAttendee = () => {
     const name = customAttendeeName.trim();
@@ -60,9 +90,9 @@ export default function TBMNewForm({ employees }: Props) {
     setCustomAttendeeName("");
   };
 
-  const removeHazardItem = (idx: number) => {
+  // ── 위험요인 헬퍼 ──────────────────────────────────────────
+  const removeHazardItem = (idx: number) =>
     setHazardItems((prev) => prev.filter((_, i) => i !== idx));
-  };
 
   const addHazardItem = () => {
     const item = newHazardItem.trim();
@@ -71,6 +101,7 @@ export default function TBMNewForm({ employees }: Props) {
     setNewHazardItem("");
   };
 
+  // ── 저장 ───────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!date || !workType) {
@@ -80,35 +111,49 @@ export default function TBMNewForm({ employees }: Props) {
     setLoading(true);
     setError("");
 
-    const res = await fetch("/api/tbm/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        date,
-        company,
-        worksite_location: worksiteLocation,
-        work_type: workType,
-        process_name: processName,
-        supervisor,
-        safety_manager: safetyManager,
-        site_manager: siteManager,
-        hazard_items: hazardItems,
-        main_hazard_notes: mainHazardNotes,
-        accident_case_notes: accidentCaseNotes,
-        education_done: educationDone,
-        attendee_names: selectedAttendees,
-      }),
-    });
+    try {
+      const res = await fetch("/api/tbm/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date,
+          company,
+          worksite_location: worksiteLocation,
+          work_type: workType,
+          process_name: processName,
+          supervisor,
+          safety_manager: safetyManager,
+          site_manager: siteManager,
+          hazard_items: hazardItems,
+          main_hazard_notes: mainHazardNotes,
+          accident_case_notes: accidentCaseNotes,
+          education_done: educationDone,
+          attendee_names: selectedAttendees,
+        }),
+      });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setError("저장 중 오류가 발생했습니다.");
+      const data = await res.json();
+
+      if (!res.ok) {
+        const msg =
+          data?.error === "unauthorized"
+            ? "로그인이 필요합니다."
+            : data?.error === "insert_failed"
+              ? "DB 저장 중 오류가 발생했습니다. 테이블이 생성되었는지 확인해 주세요."
+              : `저장 오류: ${data?.error ?? res.status}`;
+        setError(msg);
+        setLoading(false);
+        return;
+      }
+
+      router.push(`/tbm/${data.id}`);
+    } catch {
+      setError("네트워크 오류가 발생했습니다. 다시 시도해 주세요.");
       setLoading(false);
-      return;
     }
-    router.push(`/tbm/${data.id}`);
   }
 
+  // ── 렌더 ───────────────────────────────────────────────────
   return (
     <div>
       <div className="mb-6 pb-5 border-b border-gray-200">
@@ -119,7 +164,7 @@ export default function TBMNewForm({ employees }: Props) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* 기본 정보 */}
+        {/* ── 기본 정보 ── */}
         <section className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm">
           <h2 className="text-base font-semibold text-gray-900 mb-4 pb-3 border-b border-gray-100">
             📋 기본 정보
@@ -139,13 +184,42 @@ export default function TBMNewForm({ employees }: Props) {
               value={company}
               onChange={(e) => setCompany(e.target.value)}
             />
-            <Input
-              label="작업장 위치"
-              type="text"
-              placeholder="예: 2도크 선미 구역"
-              value={worksiteLocation}
-              onChange={(e) => setWorksiteLocation(e.target.value)}
-            />
+
+            {/* 작업장 — DB에 worksites가 있으면 드롭다운, 없으면 텍스트 */}
+            {worksites.length > 0 ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  작업장
+                </label>
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={worksiteId}
+                  onChange={(e) => handleWorksiteChange(e.target.value)}
+                >
+                  <option value="">작업장 선택</option>
+                  {worksites.map((ws) => (
+                    <option key={ws.id} value={ws.id}>
+                      {ws.site_name}
+                      {ws.location ? ` (${ws.location})` : ""}
+                    </option>
+                  ))}
+                  <option value="__custom__">직접 입력</option>
+                </select>
+              </div>
+            ) : null}
+
+            {/* 위치 직접 입력 (worksites 없거나 '직접 입력' 선택 시) */}
+            {(worksites.length === 0 || worksiteId === "__custom__") && (
+              <Input
+                label="작업장 위치"
+                type="text"
+                placeholder="예: 2도크 선미 구역"
+                value={worksiteLocation}
+                onChange={(e) => setWorksiteLocation(e.target.value)}
+              />
+            )}
+
+            {/* 공종 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 공종 *
@@ -164,6 +238,7 @@ export default function TBMNewForm({ employees }: Props) {
                 ))}
               </select>
             </div>
+
             <Input
               label="세부 공정명"
               type="text"
@@ -195,7 +270,7 @@ export default function TBMNewForm({ employees }: Props) {
           </div>
         </section>
 
-        {/* 위험요인 및 안전대책 */}
+        {/* ── 위험요인 및 안전대책 ── */}
         <section className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm">
           <h2 className="text-base font-semibold text-gray-900 mb-3 pb-3 border-b border-gray-100">
             ⚠️ 위험요인 및 안전대책
@@ -219,7 +294,7 @@ export default function TBMNewForm({ employees }: Props) {
                     <button
                       type="button"
                       onClick={() => removeHazardItem(idx)}
-                      className="text-gray-400 hover:text-red-500 text-xs shrink-0"
+                      className="text-gray-300 hover:text-red-400 text-xs shrink-0 px-1"
                     >
                       ✕
                     </button>
@@ -229,7 +304,7 @@ export default function TBMNewForm({ employees }: Props) {
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="위험요인 항목 추가"
+                  placeholder="위험요인 항목 직접 추가"
                   value={newHazardItem}
                   onChange={(e) => setNewHazardItem(e.target.value)}
                   onKeyDown={(e) => {
@@ -240,19 +315,25 @@ export default function TBMNewForm({ employees }: Props) {
                   }}
                   className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <Button type="button" variant="secondary" onClick={addHazardItem}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={addHazardItem}
+                >
                   추가
                 </Button>
               </div>
             </>
           ) : (
-            <p className="text-gray-400 text-sm py-6 text-center">
-              공종을 선택하면 기본 위험요인이 자동으로 불러와집니다.
-            </p>
+            <div className="py-8 text-center">
+              <p className="text-gray-400 text-sm">
+                공종을 선택하면 기본 위험요인이 자동으로 불러와집니다.
+              </p>
+            </div>
           )}
         </section>
 
-        {/* 당일 특이사항 */}
+        {/* ── 당일 특이사항 ── */}
         <section className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm">
           <h2 className="text-base font-semibold text-gray-900 mb-4 pb-3 border-b border-gray-100">
             📝 당일 특이사항
@@ -296,11 +377,33 @@ export default function TBMNewForm({ employees }: Props) {
           </div>
         </section>
 
-        {/* 참석자 선택 */}
+        {/* ── 참석자 선택 ── */}
         <section className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-gray-900 mb-4 pb-3 border-b border-gray-100">
-            👥 참석자 선택
-          </h2>
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+            <h2 className="text-base font-semibold text-gray-900">
+              👥 참석자 선택
+            </h2>
+            {employees.length > 0 && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={selectAll}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  전체 선택
+                </button>
+                <span className="text-gray-300">|</span>
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                >
+                  전체 해제
+                </button>
+              </div>
+            )}
+          </div>
+
           {employees.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
               {employees.map((emp) => {
@@ -323,7 +426,7 @@ export default function TBMNewForm({ employees }: Props) {
                       </span>
                     )}
                     {selected && (
-                      <span className="text-xs text-blue-600 mt-1">
+                      <span className="text-xs text-blue-600 mt-0.5">
                         ✓ 선택됨
                       </span>
                     )}
@@ -332,12 +435,15 @@ export default function TBMNewForm({ employees }: Props) {
               })}
             </div>
           ) : (
-            <p className="text-sm text-gray-400 mb-4">
-              등록된 직원이 없습니다. 아래에서 이름을 직접 입력하세요.
+            <p className="text-sm text-gray-400 mb-4 bg-gray-50 rounded-lg px-3 py-3">
+              등록된 직원이 없습니다.{" "}
+              <a href="/employees/new" className="text-blue-600 hover:underline">
+                직원 등록 →
+              </a>
             </p>
           )}
 
-          {/* 이름 직접 입력 */}
+          {/* 외부 작업자 직접 입력 */}
           <div className="flex gap-2 mb-3">
             <input
               type="text"
@@ -352,13 +458,17 @@ export default function TBMNewForm({ employees }: Props) {
               }}
               className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <Button type="button" variant="secondary" onClick={addCustomAttendee}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={addCustomAttendee}
+            >
               추가
             </Button>
           </div>
 
           {/* 선택된 참석자 요약 */}
-          {selectedAttendees.length > 0 && (
+          {selectedAttendees.length > 0 ? (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-xs font-semibold text-blue-700 mb-2">
                 선택된 참석자 ({selectedAttendees.length}명)
@@ -373,7 +483,7 @@ export default function TBMNewForm({ employees }: Props) {
                     <button
                       type="button"
                       onClick={() => toggleAttendee(name)}
-                      className="text-blue-400 hover:text-red-500"
+                      className="text-blue-300 hover:text-red-400 ml-0.5"
                     >
                       ✕
                     </button>
@@ -381,20 +491,28 @@ export default function TBMNewForm({ employees }: Props) {
                 ))}
               </div>
             </div>
+          ) : (
+            <p className="text-xs text-gray-400 text-center py-2">
+              참석자를 선택하지 않아도 저장할 수 있습니다.
+            </p>
           )}
         </section>
 
+        {/* 오류 */}
         {error && (
-          <div className="bg-red-50 border border-red-100 text-red-700 rounded-lg px-4 py-3 text-sm">
-            {error}
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm flex items-start gap-2">
+            <span className="shrink-0">⚠️</span>
+            <span>{error}</span>
           </div>
         )}
 
+        {/* 버튼 */}
         <div className="flex gap-3 justify-end pb-8">
           <Button
             type="button"
             variant="secondary"
             onClick={() => router.back()}
+            disabled={loading}
           >
             취소
           </Button>
