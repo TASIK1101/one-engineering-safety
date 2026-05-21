@@ -54,3 +54,63 @@ export type AssignmentWithRelations = TrainingAssignment & {
   employees: Employee;
   trainings: Training;
 };
+
+// ── TBM 모듈 ──────────────────────────────────────────────────
+
+export type Worksite = {
+  id: string;
+  admin_id: string;
+  site_name: string;
+  project_name: string | null;
+  location: string | null;
+  active: boolean;
+  created_at: string;
+};
+
+export type TbmTemplate = {
+  id: string;
+  admin_id: string;
+  template_name: string;
+  work_type: string;
+  process_name: string | null;
+  default_hazard_items: string[];
+  active: boolean;
+  created_at: string;
+};
+
+export type TbmRecord = {
+  id: string;
+  admin_id: string;
+  date: string;
+  month: string;
+  company: string | null;
+  worksite_id: string | null;
+  worksite_location: string | null;
+  work_type: string;
+  process_name: string | null;
+  supervisor: string | null;
+  safety_manager: string | null;
+  site_manager: string | null;
+  hazard_items: string[];
+  main_hazard_notes: string | null;
+  accident_case_notes: string | null;
+  education_done: boolean;
+  status: "작성중" | "서명중" | "검토중" | "완료" | "반려";
+  created_by: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TbmAttendee = {
+  id: string;
+  tbm_record_id: string;
+  employee_id: string | null;
+  employee_name: string;
+  attendance_status: "대기" | "서명완료" | "불참";
+  signature_data: string | null;
+  signed_at: string | null;
+  created_at: string;
+};
