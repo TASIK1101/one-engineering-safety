@@ -210,6 +210,14 @@ export default async function TbmDetailPage({
                   >
                     {a.attendance_status}
                   </span>
+                  {!isLocked && a.attendance_status === "대기" && (
+                    <Link
+                      href={`/tbm/${id}/sign/${a.id}`}
+                      className="text-xs font-medium text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 rounded-lg px-2 py-0.5 transition-colors"
+                    >
+                      서명하기
+                    </Link>
+                  )}
                 </div>
               </div>
             ))}
@@ -218,16 +226,16 @@ export default async function TbmDetailPage({
 
         {/* 서명 링크 공유 */}
         {!isLocked && att.length > 0 && (
-          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-xs font-semibold text-blue-700 mb-1">
-              서명 링크 공유
+          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-xs font-semibold text-blue-700 mb-2">
+              📱 근로자 서명 링크
             </p>
-            <p className="text-xs text-blue-600 break-all">{signUrl}</p>
+            <p className="text-xs text-blue-500 break-all mb-3 leading-relaxed">{signUrl}</p>
             <Link
               href={`/tbm/${id}/sign`}
-              className="text-xs text-blue-700 underline mt-1 inline-block"
+              className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
-              서명 페이지 열기 →
+              근로자 서명 링크 열기 →
             </Link>
           </div>
         )}

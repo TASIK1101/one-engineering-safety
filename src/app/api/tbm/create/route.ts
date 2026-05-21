@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       main_hazard_notes,
       accident_case_notes,
       education_done,
-      attendee_names,
+      attendee_employees,
     } = body as {
       date: string;
       company: string;
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       main_hazard_notes: string;
       accident_case_notes: string;
       education_done: boolean;
-      attendee_names: string[];
+      attendee_employees: { employee_id: string | null; employee_name: string }[];
     };
 
     if (!date || !work_type) {
@@ -77,14 +77,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "insert_failed" }, { status: 500 });
     }
 
-    if (attendee_names && attendee_names.length > 0) {
-      const rows = attendee_names.map((name: string) => ({
+    if (attendee_employees && attendee_employees.length > 0) {
+      const rows = attendee_employees.map((a) => ({
         tbm_record_id: record.id,
-        employee_name: name,
+        employee_id: a.employee_id || null,
+        employee_name: a.employee_name,
         attendance_status: "대기",
+        signature_data: null,
+        signed_at: null,
       }));
       const { error: aErr } = await admin.from("tbm_attendees").insert(rows);
-      if (aErr) console.error("[tbm/create] attendees insert error:", aErr);
+      if (aErr) {
+        console.error("[tbm/create] attendees insert error:", aErr);
+        // 참석자 저장 실패 시 생성된 TBM 레코드 삭제 후 에러 반환
+        await admin.from("tbm_records").delete().eq("id", record.id);
+        return NextResponse.json({ error: "attendees_insert_failed" }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ id: record.id });

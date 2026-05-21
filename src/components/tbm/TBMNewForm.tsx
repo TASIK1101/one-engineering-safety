@@ -42,9 +42,10 @@ export default function TBMNewForm({ employees, worksites, templates }: Props) {
   const [educationDone, setEducationDone] = useState(true);
 
   // ── 참석자 ─────────────────────────────────────────────────
-  const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
+  type AttendeeEntry = { id: string | null; name: string };
+  const [selectedAttendees, setSelectedAttendees] = useState<AttendeeEntry[]>([]);
   const [customAttendeeName, setCustomAttendeeName] = useState("");
-  const [customAttendees, setCustomAttendees] = useState<string[]>([]);
+  const [customAttendees, setCustomAttendees] = useState<AttendeeEntry[]>([]);
 
   // ── 템플릿 선택 → work_type / process_name / hazard_items 자동 채우기 ──
   const handleTemplateChange = (id: string) => {
@@ -81,14 +82,22 @@ export default function TBMNewForm({ employees, worksites, templates }: Props) {
   };
 
   // ── 참석자 헬퍼 ────────────────────────────────────────────
-  const toggleAttendee = (name: string) =>
+  const attendeeKey = (a: { id: string | null; name: string }) =>
+    a.id ?? a.name;
+
+  const isSelected = (id: string | null, name: string) =>
+    selectedAttendees.some((a) => attendeeKey(a) === (id ?? name));
+
+  const toggleAttendee = (id: string | null, name: string) =>
     setSelectedAttendees((prev) =>
-      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+      isSelected(id, name)
+        ? prev.filter((a) => attendeeKey(a) !== (id ?? name))
+        : [...prev, { id, name }]
     );
 
   const selectAll = () =>
     setSelectedAttendees([
-      ...employees.map((e) => e.name),
+      ...employees.map((e) => ({ id: e.id, name: e.name })),
       ...customAttendees,
     ]);
 
@@ -97,14 +106,15 @@ export default function TBMNewForm({ employees, worksites, templates }: Props) {
   const addCustomAttendee = () => {
     const name = customAttendeeName.trim();
     if (!name) return;
+    const entry: { id: string | null; name: string } = { id: null, name };
     if (
-      !customAttendees.includes(name) &&
+      !customAttendees.some((a) => a.name === name) &&
       !employees.find((e) => e.name === name)
     ) {
-      setCustomAttendees((prev) => [...prev, name]);
+      setCustomAttendees((prev) => [...prev, entry]);
     }
-    if (!selectedAttendees.includes(name)) {
-      setSelectedAttendees((prev) => [...prev, name]);
+    if (!isSelected(null, name)) {
+      setSelectedAttendees((prev) => [...prev, entry]);
     }
     setCustomAttendeeName("");
   };
@@ -147,7 +157,10 @@ export default function TBMNewForm({ employees, worksites, templates }: Props) {
           main_hazard_notes: mainHazardNotes,
           accident_case_notes: accidentCaseNotes,
           education_done: educationDone,
-          attendee_names: selectedAttendees,
+          attendee_employees: selectedAttendees.map((a) => ({
+            employee_id: a.id,
+            employee_name: a.name,
+          })),
         }),
       });
 
@@ -158,7 +171,9 @@ export default function TBMNewForm({ employees, worksites, templates }: Props) {
           data?.error === "unauthorized"
             ? "로그인이 필요합니다."
             : data?.error === "insert_failed"
-              ? "DB 저장 오류. 테이블이 정상적으로 생성되었는지 확인해 주세요."
+              ? "TBM 저장 오류. 테이블이 정상적으로 생성되었는지 확인해 주세요."
+              : data?.error === "attendees_insert_failed"
+              ? "참석자 저장 오류. tbm_attendees 테이블을 확인해 주세요."
               : `오류: ${data?.error ?? res.status}`;
         setError(msg);
         setLoading(false);
@@ -476,12 +491,12 @@ export default function TBMNewForm({ employees, worksites, templates }: Props) {
           {employees.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
               {employees.map((emp) => {
-                const selected = selectedAttendees.includes(emp.name);
+                const selected = isSelected(emp.id, emp.name);
                 return (
                   <button
                     key={emp.id}
                     type="button"
-                    onClick={() => toggleAttendee(emp.name)}
+                    onClick={() => toggleAttendee(emp.id, emp.name)}
                     className={`flex flex-col items-start p-3 rounded-lg border text-left transition-colors ${
                       selected
                         ? "bg-blue-50 border-blue-400 text-blue-800"
@@ -539,15 +554,15 @@ export default function TBMNewForm({ employees, worksites, templates }: Props) {
                 선택된 참석자 ({selectedAttendees.length}명)
               </p>
               <div className="flex flex-wrap gap-1.5">
-                {selectedAttendees.map((name) => (
+                {selectedAttendees.map((a) => (
                   <span
-                    key={name}
+                    key={attendeeKey(a)}
                     className="inline-flex items-center gap-1 bg-white border border-blue-200 text-blue-800 text-xs px-2 py-0.5 rounded-full"
                   >
-                    {name}
+                    {a.name}
                     <button
                       type="button"
-                      onClick={() => toggleAttendee(name)}
+                      onClick={() => toggleAttendee(a.id, a.name)}
                       className="text-blue-300 hover:text-red-400 ml-0.5"
                     >
                       ✕
