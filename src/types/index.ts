@@ -96,6 +96,7 @@ export type TbmRecord = {
   accident_case_notes: string | null;
   education_done: boolean;
   status: "작성중" | "서명중" | "검토중" | "완료" | "반려";
+  sign_token: string;
   created_by: string | null;
   approved_by: string | null;
   approved_at: string | null;
