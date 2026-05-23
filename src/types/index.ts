@@ -115,3 +115,54 @@ export type TbmAttendee = {
   signed_at: string | null;
   created_at: string;
 };
+
+// ── 안전점검 + 시정조치 모듈 ──────────────────────────────────
+
+export type SafetyInspection = {
+  id: string;
+  admin_id: string;
+  inspection_date: string;
+  inspector_name: string;
+  inspection_area: string;
+  worksite_id: string | null;
+  status: "작성중" | "완료";
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SafetyInspectionItem = {
+  id: string;
+  inspection_id: string;
+  category: string;
+  item_text: string;
+  location: string | null;
+  condition_status: "양호" | "보통" | "불량";
+  issue_description: string | null;
+  action_note: string | null;
+  before_photo_url: string | null;
+  after_photo_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CorrectiveAction = {
+  id: string;
+  admin_id: string;
+  inspection_id: string | null;
+  inspection_item_id: string | null;
+  issue_title: string;
+  issue_description: string | null;
+  assigned_to: string | null;
+  due_date: string | null;
+  before_photo_url: string | null;
+  after_photo_url: string | null;
+  action_result: string | null;
+  status: "대기" | "조치중" | "검토중" | "완료" | "반려";
+  rejection_reason: string | null;
+  completed_at: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+  updated_at: string;
+};

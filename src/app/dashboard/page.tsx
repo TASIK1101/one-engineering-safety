@@ -102,6 +102,20 @@ export default async function DashboardPage() {
             highlight
           />
           <QuickLink
+            href="/inspections/new"
+            icon="🔍"
+            title="오늘 안전점검 작성"
+            desc="현장 점검항목을 확인하고 불량 사항을 즉시 시정조치로 등록합니다."
+            action="점검 작성하기"
+          />
+          <QuickLink
+            href="/corrective-actions"
+            icon="🔧"
+            title="시정조치 관리"
+            desc="불량 항목에 대한 조치 결과를 확인하고 승인합니다."
+            action="시정조치 보기"
+          />
+          <QuickLink
             href="/trainings/new?type=pre_work_training"
             icon="🌅"
             title="오늘 작업 전 안전교육 만들기"
