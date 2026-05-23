@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { WORK_TYPES, DEFAULT_HAZARD_ITEMS } from "@/lib/tbm-work-types";
+import { WORK_TYPES, getDefaultHazardItems } from "@/lib/tbm-work-types";
 import type { Employee, Worksite, TbmTemplate } from "@/types";
 
 interface Props {
@@ -47,7 +47,7 @@ export default function TBMNewForm({ employees, worksites, templates }: Props) {
   const [customAttendeeName, setCustomAttendeeName] = useState("");
   const [customAttendees, setCustomAttendees] = useState<AttendeeEntry[]>([]);
 
-  // ── 템플릿 선택 → work_type / process_name / hazard_items 자동 채우기 ──
+  // ── 템플릿 수동 선택 → work_type / process_name / hazard_items 자동 채우기 ──
   const handleTemplateChange = (id: string) => {
     setTemplateId(id);
     if (!id) return;
@@ -55,20 +55,31 @@ export default function TBMNewForm({ employees, worksites, templates }: Props) {
     if (!tpl) return;
     setWorkType(tpl.work_type);
     setProcessName(tpl.process_name ?? "");
-    // DB에서 불러온 hazard items 사용 (없으면 기본값 fallback)
+    // DB 템플릿 항목 우선, 없으면 공종별 기본값
     const items =
       Array.isArray(tpl.default_hazard_items) && tpl.default_hazard_items.length > 0
         ? (tpl.default_hazard_items as string[])
-        : [...DEFAULT_HAZARD_ITEMS];
+        : getDefaultHazardItems(tpl.work_type);
     setHazardItems(items);
   };
 
-  // 공종만 변경 시 (템플릿 미선택 상태) 기본 위험요인 로드
+  // ── 공종 변경 시 위험요인 자동 교체 ──────────────────────────
+  // 우선순위: DB 템플릿(해당 공종) > 하드코딩 공종별 기본값
   useEffect(() => {
-    if (!templateId && workType) {
-      setHazardItems([...DEFAULT_HAZARD_ITEMS]);
+    if (!workType) return;
+    if (templateId) return; // 템플릿 수동 선택 중이면 덮어쓰지 않음
+
+    // DB 템플릿 중 동일 공종 첫 번째 매칭
+    const matched = templates.find(
+      (t) => t.work_type === workType
+    );
+    if (matched && Array.isArray(matched.default_hazard_items) && matched.default_hazard_items.length > 0) {
+      setHazardItems([...(matched.default_hazard_items as string[])]);
+    } else {
+      // DB에 템플릿 없으면 하드코딩 공종별 기본값 사용
+      setHazardItems(getDefaultHazardItems(workType));
     }
-  }, [workType, templateId]);
+  }, [workType, templateId, templates]);
 
   // ── worksite 선택 → location 자동 채우기 ───────────────────
   const handleWorksiteChange = (id: string) => {
