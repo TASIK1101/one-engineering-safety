@@ -2,24 +2,68 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { getTypeLabel, getTypeColor } from "@/lib/training-types";
-import type { Training } from "@/types";
-import RecordsFilter from "./RecordsFilter";
+import { Suspense } from "react";
+import UnifiedRecordsFilter from "./RecordsFilter";
 
-type TrainingWithStats = Training & {
-  totalCount: number;
-  completedCount: number;
-  pendingCount: number;
+// ── 정규화된 통합 레코드 타입 ─────────────────────────────────
+type RecordType = "tbm" | "inspection" | "corrective";
+
+type UnifiedRecord = {
+  type: RecordType;
+  id: string;
+  date: string;       // YYYY-MM-DD
+  title: string;
+  area: string;
+  workType: string;
+  status: string;
+  author: string;
+  detailHref: string;
+  printHref: string;
 };
 
-export default async function RecordsPage({
+// ── 타입 배지 ─────────────────────────────────────────────────
+function TypeBadge({ type }: { type: RecordType }) {
+  const map = {
+    tbm:         { label: "TBM",  cls: "bg-blue-800 text-white" },
+    inspection:  { label: "점검", cls: "bg-indigo-600 text-white" },
+    corrective:  { label: "시정", cls: "bg-orange-500 text-white" },
+  };
+  const { label, cls } = map[type];
+  return (
+    <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-full ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+// ── 상태 배지 ─────────────────────────────────────────────────
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    작성중: "bg-gray-100 text-gray-600 border-gray-200",
+    서명중: "bg-blue-50 text-blue-700 border-blue-200",
+    검토중: "bg-amber-50 text-amber-700 border-amber-200",
+    완료:   "bg-green-50 text-green-700 border-green-200",
+    반려:   "bg-red-50 text-red-700 border-red-200",
+    대기:   "bg-gray-100 text-gray-500 border-gray-200",
+    조치중: "bg-blue-50 text-blue-600 border-blue-200",
+  };
+  const cls = map[status] ?? "bg-gray-100 text-gray-500 border-gray-200";
+  return (
+    <span className={`inline-block text-xs px-2 py-0.5 rounded-full border font-medium ${cls}`}>
+      {status}
+    </span>
+  );
+}
+
+export default async function UnifiedRecordsPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    q?: string;
     type?: string;
+    q?: string;
+    date_from?: string;
+    date_to?: string;
     status?: string;
-    instructor?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -28,188 +72,228 @@ export default async function RecordsPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: employees } = await supabase
-    .from("employees")
-    .select("id")
-    .eq("admin_id", user!.id);
+  const filterType = params.type ?? "";      // 'tbm' | 'inspection' | 'corrective' | ''
+  const filterQ    = params.q ?? "";
+  const dateFrom   = params.date_from ?? "";
+  const dateTo     = params.date_to ?? "";
+  const filterStatus = params.status ?? "";
 
-  const employeeIds = (employees ?? []).map((e) => e.id);
+  // ── 병렬 조회 ─────────────────────────────────────────────
+  const [tbmRes, insRes, caRes] = await Promise.all([
+    filterType && filterType !== "tbm" ? Promise.resolve({ data: [] }) :
+      supabase.from("tbm_records")
+        .select("id,date,worksite_location,work_type,process_name,supervisor,status")
+        .eq("admin_id", user!.id)
+        .order("date", { ascending: false })
+        .limit(200),
 
-  let query = supabase
-    .from("trainings")
-    .select("*")
-    .eq("admin_id", user!.id)
-    .order("created_at", { ascending: false });
+    filterType && filterType !== "inspection" ? Promise.resolve({ data: [] }) :
+      supabase.from("safety_inspections")
+        .select("id,inspection_date,inspection_area,inspector_name,status")
+        .eq("admin_id", user!.id)
+        .order("inspection_date", { ascending: false })
+        .limit(200),
 
-  if (params.type) query = query.eq("training_type", params.type);
-  if (params.instructor)
-    query = query.ilike("instructor", `%${params.instructor}%`);
+    filterType && filterType !== "corrective" ? Promise.resolve({ data: [] }) :
+      supabase.from("corrective_actions")
+        .select("id,issue_title,assigned_to,due_date,status,created_at")
+        .eq("admin_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(200),
+  ]);
 
-  const { data: rawTrainings } = await query;
-  const trainings = (rawTrainings ?? []) as Training[];
+  // ── 정규화 ────────────────────────────────────────────────
+  const tbmRows: UnifiedRecord[] = (tbmRes.data ?? []).map((r) => ({
+    type: "tbm",
+    id: r.id,
+    date: r.date,
+    title: r.work_type + (r.process_name ? ` · ${r.process_name}` : ""),
+    area: r.worksite_location ?? "-",
+    workType: r.work_type,
+    status: r.status,
+    author: r.supervisor ?? "-",
+    detailHref: `/tbm/${r.id}`,
+    printHref:  `/records/tbm/${r.id}`,
+  }));
 
-  // 각 교육별 이수 통계 조회 (한 번의 쿼리로 집계)
-  const trainingIds = trainings.map((t) => t.id);
-  const { data: allAssignments } =
-    trainingIds.length > 0
-      ? await supabase
-          .from("training_assignments")
-          .select("training_id, status, employee_id")
-          .in("training_id", trainingIds)
-      : { data: [] };
+  const insRows: UnifiedRecord[] = (insRes.data ?? []).map((r) => ({
+    type: "inspection",
+    id: r.id,
+    date: r.inspection_date,
+    title: r.inspection_area,
+    area: r.inspection_area,
+    workType: "-",
+    status: r.status,
+    author: r.inspector_name ?? "-",
+    detailHref: `/inspections/${r.id}`,
+    printHref:  `/records/inspection/${r.id}`,
+  }));
 
-  const statsMap = new Map<
-    string,
-    { completed: number; pending: number; total: number }
-  >();
-  for (const t of trainings) {
-    statsMap.set(t.id, { completed: 0, pending: 0, total: employeeIds.length });
-  }
-  for (const a of allAssignments ?? []) {
-    const s = statsMap.get(a.training_id);
-    if (!s) continue;
-    if (a.status === "completed") s.completed++;
-    else s.pending++;
-  }
+  const caRows: UnifiedRecord[] = (caRes.data ?? []).map((r) => ({
+    type: "corrective",
+    id: r.id,
+    date: (r.created_at as string).substring(0, 10),
+    title: r.issue_title,
+    area: "-",
+    workType: "-",
+    status: r.status,
+    author: r.assigned_to ?? "-",
+    detailHref: `/corrective-actions/${r.id}`,
+    printHref:  `/records/corrective-action/${r.id}`,
+  }));
 
-  // 클라이언트-사이드 필터링이 필요한 항목 (title, work_name 검색)
-  let filtered = trainings.map((t) => ({
-    ...t,
-    totalCount: statsMap.get(t.id)?.total ?? 0,
-    completedCount: statsMap.get(t.id)?.completed ?? 0,
-    pendingCount:
-      (statsMap.get(t.id)?.total ?? 0) -
-      (statsMap.get(t.id)?.completed ?? 0),
-  })) as TrainingWithStats[];
+  // ── 병합 + 날짜 정렬 ────────────────────────────────────────
+  let merged = [...tbmRows, ...insRows, ...caRows].sort(
+    (a, b) => b.date.localeCompare(a.date)
+  );
 
-  if (params.q) {
-    const q = params.q.toLowerCase();
-    filtered = filtered.filter(
-      (t) =>
-        t.title.toLowerCase().includes(q) ||
-        (t.work_name ?? "").toLowerCase().includes(q)
+  // ── 클라이언트 필터 (URL params 기반) ─────────────────────
+  if (dateFrom) merged = merged.filter((r) => r.date >= dateFrom);
+  if (dateTo)   merged = merged.filter((r) => r.date <= dateTo);
+  if (filterStatus) merged = merged.filter((r) => r.status === filterStatus);
+  if (filterQ) {
+    const q = filterQ.toLowerCase();
+    merged = merged.filter(
+      (r) =>
+        r.title.toLowerCase().includes(q) ||
+        r.area.toLowerCase().includes(q) ||
+        r.author.toLowerCase().includes(q) ||
+        r.workType.toLowerCase().includes(q)
     );
   }
-  if (params.status === "completed") {
-    filtered = filtered.filter((t) => t.completedCount >= t.totalCount && t.totalCount > 0);
-  } else if (params.status === "pending") {
-    filtered = filtered.filter((t) => t.pendingCount > 0);
-  }
+
+  // ── 통계 ─────────────────────────────────────────────────
+  const totalTbm    = tbmRows.length;
+  const totalIns    = insRows.length;
+  const totalCa     = caRows.length;
+  const unresolved  = merged.filter((r) => !["완료"].includes(r.status)).length;
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">교육기록 보관함</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          교육 기록을 검색하고 출력할 수 있습니다.
-        </p>
-      </div>
-
-      {/* 검색/필터 */}
-      <RecordsFilter />
-
-      {filtered.length === 0 ? (
-        <div className="rounded-xl bg-white border border-gray-200 p-12 text-center mt-4">
-          <p className="text-gray-400 text-sm">
-            {params.q || params.type || params.status
-              ? "검색 조건에 맞는 교육 기록이 없습니다."
-              : "등록된 교육 기록이 없습니다."}
+      {/* 헤더 */}
+      <div className="flex items-start justify-between mb-6 pb-5 border-b border-gray-200">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">통합 기록 보관함</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            TBM · 안전점검 · 시정조치 기록을 검색하고 출력합니다.
           </p>
         </div>
+      </div>
+
+      {/* 요약 카드 */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {[
+          { label: "TBM",    value: totalTbm,   color: "border-l-blue-500 text-blue-700" },
+          { label: "안전점검", value: totalIns, color: "border-l-indigo-500 text-indigo-700" },
+          { label: "시정조치", value: totalCa,  color: "border-l-orange-500 text-orange-700" },
+          { label: "미결 항목", value: unresolved, color: "border-l-red-400 text-red-600" },
+        ].map(({ label, value, color }) => (
+          <div key={label} className={`rounded-xl bg-white border border-gray-200 border-l-4 ${color.split(" ")[0]} p-4 shadow-sm`}>
+            <p className="text-xs text-gray-500 mb-0.5">{label}</p>
+            <p className={`text-2xl font-bold ${color.split(" ")[1]}`}>
+              {value}<span className="text-sm font-normal text-gray-400 ml-1">건</span>
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* 필터 */}
+      <Suspense fallback={<div className="h-24 rounded-xl bg-white border border-gray-200 animate-pulse mb-4" />}>
+        <UnifiedRecordsFilter />
+      </Suspense>
+
+      {/* 결과 수 */}
+      <p className="text-sm text-gray-500 mb-3 mt-4">
+        검색 결과 <strong className="text-gray-800">{merged.length}</strong>건
+        {(filterQ || filterType || filterStatus || dateFrom || dateTo) && (
+          <Link href="/records" className="ml-2 text-blue-600 text-xs hover:underline">
+            필터 초기화
+          </Link>
+        )}
+      </p>
+
+      {/* 목록 */}
+      {merged.length === 0 ? (
+        <div className="rounded-xl bg-white border border-gray-200 p-12 text-center">
+          <div className="text-4xl mb-3">🗂️</div>
+          <p className="text-gray-500 font-medium">검색 결과가 없습니다</p>
+          <p className="text-sm text-gray-400 mt-1">필터를 변경하거나 초기화해 보세요.</p>
+        </div>
       ) : (
-        <div className="mt-4 flex flex-col gap-3">
-          {filtered.map((t) => (
-            <div
-              key={t.id}
-              className="rounded-xl bg-white border border-gray-200 p-5 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  {/* 배지 행 */}
-                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                    <span
-                      className={`inline-flex text-[11px] font-medium px-2 py-0.5 rounded-full border ${getTypeColor(
-                        t.training_type ?? "regular_training"
-                      )}`}
-                    >
-                      {getTypeLabel(t.training_type ?? "regular_training")}
-                    </span>
-                    {t.work_date && (
-                      <span className="text-[11px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
-                        {t.work_date}
-                      </span>
-                    )}
-                  </div>
+        <div className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+          {/* 데스크탑 테이블 헤더 */}
+          <div className="hidden sm:grid grid-cols-[72px_90px_1fr_80px_90px_90px_130px] gap-3 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            <span>유형</span>
+            <span>날짜</span>
+            <span>제목 / 구역</span>
+            <span>공종</span>
+            <span>상태</span>
+            <span>작성/담당</span>
+            <span className="text-right">액션</span>
+          </div>
 
-                  {/* 교육명 */}
-                  <p className="font-semibold text-gray-900">{t.title}</p>
-
-                  {/* 메타 정보 */}
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
-                    <span>
-                      등록일:{" "}
-                      {new Date(t.created_at).toLocaleDateString("ko-KR")}
-                    </span>
-                    {t.work_name && <span>작업명: {t.work_name}</span>}
-                    {t.instructor && <span>담당자: {t.instructor}</span>}
-                    {t.work_location && <span>장소: {t.work_location}</span>}
-                  </div>
+          <div className="divide-y divide-gray-100">
+            {merged.map((r) => (
+              <div key={`${r.type}-${r.id}`}
+                className="grid grid-cols-1 sm:grid-cols-[72px_90px_1fr_80px_90px_90px_130px] gap-x-3 gap-y-1 px-4 py-3 hover:bg-gray-50 transition-colors"
+              >
+                {/* 유형 */}
+                <div className="flex items-center">
+                  <TypeBadge type={r.type} />
                 </div>
 
-                {/* 이수 통계 + 버튼 */}
-                <div className="shrink-0 flex flex-col items-end gap-2">
-                  <div className="flex gap-3 text-xs">
-                    <span className="text-gray-500">
-                      전체{" "}
-                      <strong className="text-gray-800">{t.totalCount}</strong>명
+                {/* 날짜 */}
+                <div className="flex items-center text-sm text-gray-600 font-medium">
+                  {r.date}
+                </div>
+
+                {/* 제목 */}
+                <div className="flex items-center min-w-0">
+                  <span className="text-sm font-semibold text-gray-900 truncate">
+                    {r.title}
+                  </span>
+                  {r.area !== "-" && r.area !== r.title && (
+                    <span className="ml-2 text-xs text-gray-400 hidden lg:inline truncate">
+                      {r.area}
                     </span>
-                    <span className="text-green-600">
-                      완료 <strong>{t.completedCount}</strong>명
-                    </span>
-                    <span className="text-amber-500">
-                      미이수 <strong>{t.pendingCount}</strong>명
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Link
-                      href={`/trainings/${t.id}`}
-                      className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-                    >
-                      이수 현황
-                    </Link>
-                    <Link
-                      href={`/print/training/${t.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
-                    >
-                      🖨️ 출력
-                    </Link>
-                  </div>
+                  )}
+                </div>
+
+                {/* 공종 */}
+                <div className="flex items-center text-xs text-gray-500">
+                  {r.workType}
+                </div>
+
+                {/* 상태 */}
+                <div className="flex items-center">
+                  <StatusBadge status={r.status} />
+                </div>
+
+                {/* 작성/담당 */}
+                <div className="flex items-center text-xs text-gray-500 truncate">
+                  {r.author}
+                </div>
+
+                {/* 액션 버튼 */}
+                <div className="flex items-center justify-end gap-1.5">
+                  <Link
+                    href={r.detailHref}
+                    className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  >
+                    상세보기
+                  </Link>
+                  <Link
+                    href={r.printHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                  >
+                    🖨️ 인쇄
+                  </Link>
                 </div>
               </div>
-
-              {/* 이수율 바 */}
-              {t.totalCount > 0 && (
-                <div className="mt-3">
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-green-500 rounded-full transition-all"
-                      style={{
-                        width: `${Math.round(
-                          (t.completedCount / t.totalCount) * 100
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-0.5 text-right">
-                    이수율{" "}
-                    {Math.round((t.completedCount / t.totalCount) * 100)}%
-                  </p>
-                </div>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>

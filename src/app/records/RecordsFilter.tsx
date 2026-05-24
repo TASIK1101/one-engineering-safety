@@ -2,98 +2,143 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition, Suspense } from "react";
-import { TRAINING_TYPE_OPTIONS } from "@/lib/training-types";
 
-function RecordsFilterInner() {
+const TYPE_OPTIONS = [
+  { value: "",           label: "전체" },
+  { value: "tbm",        label: "TBM" },
+  { value: "inspection", label: "안전점검" },
+  { value: "corrective", label: "시정조치" },
+];
+
+const STATUS_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  "": [
+    { value: "서명중", label: "서명중" },
+    { value: "검토중", label: "검토중" },
+    { value: "완료",   label: "완료" },
+    { value: "반려",   label: "반려" },
+    { value: "대기",   label: "대기" },
+    { value: "조치중", label: "조치중" },
+  ],
+  tbm: [
+    { value: "서명중", label: "서명중" },
+    { value: "검토중", label: "검토중" },
+    { value: "완료",   label: "완료" },
+    { value: "반려",   label: "반려" },
+  ],
+  inspection: [
+    { value: "작성중", label: "작성중" },
+    { value: "완료",   label: "완료" },
+  ],
+  corrective: [
+    { value: "대기",   label: "대기" },
+    { value: "조치중", label: "조치중" },
+    { value: "검토중", label: "검토중" },
+    { value: "완료",   label: "완료" },
+    { value: "반려",   label: "반려" },
+  ],
+};
+
+function UnifiedRecordsFilterInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  const [q, setQ] = useState(sp.get("q") ?? "");
-  const [type, setType] = useState(sp.get("type") ?? "");
-  const [status, setStatus] = useState(sp.get("status") ?? "");
-  const [instructor, setInstructor] = useState(sp.get("instructor") ?? "");
+  const [type,      setType]      = useState(sp.get("type")      ?? "");
+  const [q,         setQ]         = useState(sp.get("q")         ?? "");
+  const [dateFrom,  setDateFrom]  = useState(sp.get("date_from") ?? "");
+  const [dateTo,    setDateTo]    = useState(sp.get("date_to")   ?? "");
+  const [status,    setStatus]    = useState(sp.get("status")    ?? "");
 
   function apply() {
     const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    if (type) params.set("type", type);
-    if (status) params.set("status", status);
-    if (instructor) params.set("instructor", instructor);
-    startTransition(() => {
-      router.push(`/records?${params.toString()}`);
-    });
+    if (type)     params.set("type",      type);
+    if (q)        params.set("q",         q);
+    if (dateFrom) params.set("date_from", dateFrom);
+    if (dateTo)   params.set("date_to",   dateTo);
+    if (status)   params.set("status",    status);
+    startTransition(() => router.push(`/records?${params.toString()}`));
   }
 
   function reset() {
-    setQ("");
-    setType("");
-    setStatus("");
-    setInstructor("");
-    startTransition(() => {
-      router.push("/records");
-    });
+    setType(""); setQ(""); setDateFrom(""); setDateTo(""); setStatus("");
+    startTransition(() => router.push("/records"));
   }
 
+  const statusOptions = STATUS_OPTIONS[type] ?? STATUS_OPTIONS[""];
+
   return (
-    <div className="rounded-xl bg-white border border-gray-200 p-4 shadow-sm">
+    <div className="rounded-xl bg-white border border-gray-200 p-4 shadow-sm mb-4">
+      {/* 유형 탭 */}
+      <div className="flex gap-1.5 mb-4">
+        {TYPE_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => { setType(opt.value); setStatus(""); }}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              type === opt.value
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 상세 필터 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* 검색어 */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500">
-            교육명 / 작업명 검색
-          </label>
+          <label className="text-xs font-medium text-gray-500">검색어</label>
           <input
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && apply()}
-            placeholder="검색어 입력"
+            placeholder="제목, 구역, 담당자 검색"
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
+        {/* 날짜 시작 */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500">교육 유형</label>
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value)}
+          <label className="text-xs font-medium text-gray-500">날짜 (시작)</label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="">전체 유형</option>
-            {TRAINING_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
+        {/* 날짜 종료 */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500">이수 상태</label>
+          <label className="text-xs font-medium text-gray-500">날짜 (종료)</label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* 상태 */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-500">상태</label>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="">전체 상태</option>
-            <option value="completed">전원 이수 완료</option>
-            <option value="pending">미이수자 있음</option>
+            {statusOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
           </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500">교육 담당자</label>
-          <input
-            type="text"
-            value={instructor}
-            onChange={(e) => setInstructor(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && apply()}
-            placeholder="담당자 이름"
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
         </div>
       </div>
 
+      {/* 버튼 */}
       <div className="flex gap-2 mt-3">
         <button
           onClick={apply}
@@ -113,10 +158,10 @@ function RecordsFilterInner() {
   );
 }
 
-export default function RecordsFilter() {
+export default function UnifiedRecordsFilter() {
   return (
-    <Suspense>
-      <RecordsFilterInner />
+    <Suspense fallback={<div className="h-28 rounded-xl bg-white border border-gray-200 animate-pulse" />}>
+      <UnifiedRecordsFilterInner />
     </Suspense>
   );
 }

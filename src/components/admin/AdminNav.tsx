@@ -13,7 +13,7 @@ const navItems = [
   { href: "/tbm", label: "TBM 교육" },
   { href: "/inspections", label: "안전점검" },
   { href: "/corrective-actions", label: "시정조치" },
-  { href: "/records", label: "교육기록 보관함" },
+  { href: "/records", label: "통합 기록" },
   { href: "/reports", label: "이수기록 출력" },
 ];
 
