@@ -43,11 +43,8 @@ export default async function TbmDetailPage({
   const isRejected = tbm.status === "반려";
   const canApprove = tbm.status === "검토중";
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-  // sign_token이 있으면 토큰 기반 링크, 없으면 id 기반 링크 (fallback)
-  const signUrl = tbm.sign_token
-    ? `${appUrl}/tbm/sign/${tbm.sign_token}`
-    : `${appUrl}/tbm/${id}/sign`;
+  // signUrl은 TBMSignLinkBox 클라이언트에서 window.location.origin 기준으로 생성
+  // (Preview URL이 바뀌어도 항상 현재 도메인에 맞는 링크 생성됨)
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -231,7 +228,7 @@ export default async function TbmDetailPage({
         {/* 서명 링크 공유 */}
         {!isLocked && (
           <div className="mt-5">
-            <TBMSignLinkBox signUrl={signUrl} />
+            <TBMSignLinkBox signToken={tbm.sign_token} />
           </div>
         )}
       </section>

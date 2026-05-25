@@ -1,21 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 
 interface Props {
-  signUrl: string;
+  signToken: string;
 }
 
-export default function TBMSignLinkBox({ signUrl }: Props) {
+export default function TBMSignLinkBox({ signToken }: Props) {
+  const [signUrl, setSignUrl] = useState("");
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
 
+  // 클라이언트 실행 시점의 origin으로 URL 생성
+  // → Preview 배포 URL이 바뀌어도 항상 현재 도메인 기준으로 생성됨
+  useEffect(() => {
+    setSignUrl(`${window.location.origin}/tbm/sign/${signToken}`);
+  }, [signToken]);
+
   const copyLink = async () => {
+    if (!signUrl) return;
     try {
       await navigator.clipboard.writeText(signUrl);
     } catch {
-      // 클립보드 API 미지원 브라우저 대응
       const el = document.createElement("textarea");
       el.value = signUrl;
       el.style.position = "fixed";
@@ -43,10 +50,14 @@ export default function TBMSignLinkBox({ signUrl }: Props) {
       </p>
 
       {/* URL 표시 */}
-      <div className="bg-white border border-blue-200 rounded-lg px-3 py-2.5 mb-3 select-all">
-        <p className="text-xs text-blue-700 break-all font-mono leading-relaxed">
-          {signUrl}
-        </p>
+      <div className="bg-white border border-blue-200 rounded-lg px-3 py-2.5 mb-3 select-all min-h-[40px]">
+        {signUrl ? (
+          <p className="text-xs text-blue-700 break-all font-mono leading-relaxed">
+            {signUrl}
+          </p>
+        ) : (
+          <p className="text-xs text-gray-300">링크 생성 중...</p>
+        )}
       </div>
 
       {/* 버튼 행 */}
@@ -54,17 +65,18 @@ export default function TBMSignLinkBox({ signUrl }: Props) {
         <button
           type="button"
           onClick={copyLink}
+          disabled={!signUrl}
           className={`flex-1 flex items-center justify-center gap-1.5 text-sm font-semibold py-3 rounded-xl border-2 transition-all ${
             copied
               ? "bg-green-100 border-green-400 text-green-700"
               : "bg-white border-blue-300 text-blue-700 hover:bg-blue-100 active:scale-95"
-          }`}
+          } disabled:opacity-40 disabled:cursor-not-allowed`}
         >
           <span>{copied ? "✓" : "🔗"}</span>
           {copied ? "복사됨!" : "링크 복사"}
         </button>
         <a
-          href={signUrl}
+          href={signUrl || "#"}
           target="_blank"
           rel="noopener noreferrer"
           className="flex-1 flex items-center justify-center gap-1.5 text-sm font-semibold py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white transition-all"
@@ -83,18 +95,19 @@ export default function TBMSignLinkBox({ signUrl }: Props) {
         {showQR ? "QR 코드 숨기기" : "QR 코드 보기"}
       </button>
 
-      {/* QR 코드 */}
+      {/* QR 코드 — signUrl 준비됐을 때만 렌더링 */}
       {showQR && (
         <div className="mt-3 flex flex-col items-center bg-white rounded-xl p-5 border border-blue-200 gap-3">
-          <QRCodeSVG
-            value={signUrl}
-            size={200}
-            level="M"
-            includeMargin
-          />
-          <p className="text-xs text-gray-400 text-center">
-            카메라로 QR 코드를 스캔하면 서명 페이지로 이동합니다
-          </p>
+          {signUrl ? (
+            <>
+              <QRCodeSVG value={signUrl} size={200} level="M" includeMargin />
+              <p className="text-xs text-gray-400 text-center">
+                카메라로 QR 코드를 스캔하면 서명 페이지로 이동합니다
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-gray-300 py-8">QR 생성 중...</p>
+          )}
         </div>
       )}
     </div>
