@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import PrintButton from "@/components/ui/PrintButton";
 import type { CorrectiveAction } from "@/types";
+import { resolvePhotoUrl } from "@/lib/photo-url";
 
 export default async function CorrectiveActionPrintPage({
   params,
@@ -131,10 +132,10 @@ export default async function CorrectiveActionPrintPage({
             {/* 조치 전 */}
             <div>
               <p className="text-xs font-semibold text-gray-600 mb-2">조치 전</p>
-              {ca.before_photo_url ? (
+              {resolvePhotoUrl(ca.before_photo_url) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={ca.before_photo_url}
+                  src={resolvePhotoUrl(ca.before_photo_url)!}
                   alt="조치 전 사진"
                   className="w-full max-h-48 object-contain border border-gray-200 rounded"
                 />
@@ -147,10 +148,10 @@ export default async function CorrectiveActionPrintPage({
             {/* 조치 후 */}
             <div>
               <p className="text-xs font-semibold text-gray-600 mb-2">조치 후</p>
-              {ca.after_photo_url ? (
+              {resolvePhotoUrl(ca.after_photo_url) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={ca.after_photo_url}
+                  src={resolvePhotoUrl(ca.after_photo_url)!}
                   alt="조치 후 사진"
                   className="w-full max-h-48 object-contain border border-gray-200 rounded"
                 />

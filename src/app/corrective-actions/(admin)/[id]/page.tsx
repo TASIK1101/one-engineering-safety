@@ -7,6 +7,7 @@ import type { CorrectiveAction, SafetyInspectionItem, SafetyInspection } from "@
 import { getCorrectiveActionStatusColor } from "@/lib/inspection-categories";
 import CorrectiveActionUpdateForm from "@/components/inspection/CorrectiveActionUpdateForm";
 import CorrectiveActionApproveBox from "@/components/inspection/CorrectiveActionApproveBox";
+import SafeImg from "@/components/ui/SafeImg";
 
 export default async function CorrectiveActionDetailPage({
   params,
@@ -99,17 +100,14 @@ export default async function CorrectiveActionDetailPage({
             {action.issue_description}
           </p>
         )}
-        {action.before_photo_url && (
-          <div className="mb-4">
-            <p className="text-xs text-gray-500 mb-2 font-semibold">현황 사진 (Before)</p>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={action.before_photo_url}
-              alt="현황 사진"
-              className="max-w-xs rounded-lg border border-gray-200"
-            />
-          </div>
-        )}
+        <div className="mb-4">
+          <p className="text-xs text-gray-500 mb-2 font-semibold">현황 사진 (Before)</p>
+          <SafeImg
+            src={action.before_photo_url}
+            alt="현황 사진"
+            className="max-w-xs rounded-lg border border-gray-200"
+          />
+        </div>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mt-4">
           {action.assigned_to && (
             <div>
@@ -173,17 +171,14 @@ export default async function CorrectiveActionDetailPage({
               </p>
             </div>
           )}
-          {action.after_photo_url && (
-            <div className="mb-4">
-              <p className="text-xs text-gray-500 mb-2 font-semibold">조치 후 사진 (After)</p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={action.after_photo_url}
-                alt="조치 후 사진"
-                className="max-w-xs rounded-lg border border-gray-200"
-              />
-            </div>
-          )}
+          <div className="mb-4">
+            <p className="text-xs text-gray-500 mb-2 font-semibold">조치 후 사진 (After)</p>
+            <SafeImg
+              src={action.after_photo_url}
+              alt="조치 후 사진"
+              className="max-w-xs rounded-lg border border-gray-200"
+            />
+          </div>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mt-2">
             {action.approved_by && (
               <div>
