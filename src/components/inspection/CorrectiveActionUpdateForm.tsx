@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import PhotoUploadButton from "@/components/ui/PhotoUploadButton";
+import ImageUpload from "@/components/ui/ImageUpload";
 
 interface Props {
   actionId: string;
@@ -91,10 +91,10 @@ export default function CorrectiveActionUpdateForm({
         </div>
 
         {/* 조치 후 사진 업로드 */}
-        <PhotoUploadButton
+        <ImageUpload
           folder={`corrective-actions/${actionId}`}
-          label="조치 후 사진 (선택)"
-          currentUrl={afterPhotoUrl || null}
+          label="📸 조치 후 사진 (선택)"
+          initialUrl={afterPhotoUrl || null}
           onUpload={(url) => setAfterPhotoUrl(url)}
           disabled={loading}
         />

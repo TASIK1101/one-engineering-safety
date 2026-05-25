@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Worksite } from "@/types";
 import { INSPECTION_CATEGORIES } from "@/lib/inspection-categories";
-import PhotoUploadButton from "@/components/ui/PhotoUploadButton";
+import ImageUpload from "@/components/ui/ImageUpload";
 
 type ConditionStatus = "양호" | "보통" | "불량";
 
@@ -328,10 +328,10 @@ export default function InspectionForm({ worksites }: { worksites: Worksite[] })
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                           />
                         </div>
-                        <PhotoUploadButton
+                        <ImageUpload
                           folder="inspections/items"
-                          label="현황 사진 (선택)"
-                          currentUrl={item.before_photo_url || null}
+                          label="📸 현황 사진 (조치 전)"
+                          initialUrl={item.before_photo_url || null}
                           onUpload={(url) => updateItem(idx, { before_photo_url: url })}
                           disabled={loading}
                         />
