@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import PhotoUploadButton from "@/components/ui/PhotoUploadButton";
 
 interface Props {
   actionId: string;
@@ -37,7 +38,7 @@ export default function CorrectiveActionUpdateForm({
         body: JSON.stringify({
           id: actionId,
           action_result: actionResult.trim(),
-          after_photo_url: afterPhotoUrl.trim() || null,
+          after_photo_url: afterPhotoUrl || null,
         }),
       });
 
@@ -74,7 +75,8 @@ export default function CorrectiveActionUpdateForm({
         </p>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* 조치 결과 텍스트 */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             조치 결과 <span className="text-red-500">*</span>
@@ -88,20 +90,20 @@ export default function CorrectiveActionUpdateForm({
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            조치 후 사진 URL (선택)
-          </label>
-          <input
-            type="text"
-            placeholder="https://..."
-            value={afterPhotoUrl}
-            onChange={(e) => setAfterPhotoUrl(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+        {/* 조치 후 사진 업로드 */}
+        <PhotoUploadButton
+          folder={`corrective-actions/${actionId}`}
+          label="조치 후 사진 (선택)"
+          currentUrl={afterPhotoUrl || null}
+          onUpload={(url) => setAfterPhotoUrl(url)}
+          disabled={loading}
+        />
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+            {error}
+          </p>
+        )}
 
         <button
           type="submit"

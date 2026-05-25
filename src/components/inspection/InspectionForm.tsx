@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Worksite } from "@/types";
 import { INSPECTION_CATEGORIES } from "@/lib/inspection-categories";
+import PhotoUploadButton from "@/components/ui/PhotoUploadButton";
 
 type ConditionStatus = "양호" | "보통" | "불량";
 
@@ -327,20 +328,13 @@ export default function InspectionForm({ worksites }: { worksites: Worksite[] })
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                           />
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
-                            현황 사진 URL (선택)
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="https://..."
-                            value={item.before_photo_url}
-                            onChange={(e) =>
-                              updateItem(idx, { before_photo_url: e.target.value })
-                            }
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
+                        <PhotoUploadButton
+                          folder="inspections/items"
+                          label="현황 사진 (선택)"
+                          currentUrl={item.before_photo_url || null}
+                          onUpload={(url) => updateItem(idx, { before_photo_url: url })}
+                          disabled={loading}
+                        />
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">
