@@ -6,7 +6,7 @@ import { Suspense } from "react";
 import UnifiedRecordsFilter from "./RecordsFilter";
 
 // ── 정규화된 통합 레코드 타입 ─────────────────────────────────
-type RecordType = "tbm" | "inspection" | "corrective";
+type RecordType = "tbm" | "inspection" | "corrective" | "work-permit";
 
 type UnifiedRecord = {
   type: RecordType;
@@ -19,18 +19,37 @@ type UnifiedRecord = {
   author: string;
   detailHref: string;
   printHref: string;
+  // 작업허가서 전용 필드
+  grade?: string;
 };
 
-// ── 타입 배지 ─────────────────────────────────────────────────
-function TypeBadge({ type }: { type: RecordType }) {
+// ── 유형 배지 ─────────────────────────────────────────────────
+function TypeBadge({ type, grade }: { type: RecordType; grade?: string }) {
+  if (type === "work-permit") {
+    const isA = grade === "A";
+    return (
+      <span
+        className={`inline-flex flex-col items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-tight ${
+          isA
+            ? "bg-red-100 text-red-700"
+            : "bg-orange-100 text-orange-700"
+        }`}
+      >
+        <span>{grade}급</span>
+        <span>허가서</span>
+      </span>
+    );
+  }
   const map = {
-    tbm:         { label: "TBM",  cls: "bg-blue-800 text-white" },
-    inspection:  { label: "점검", cls: "bg-indigo-600 text-white" },
-    corrective:  { label: "시정", cls: "bg-orange-500 text-white" },
+    tbm:        { label: "TBM",  cls: "bg-blue-800 text-white" },
+    inspection: { label: "점검", cls: "bg-indigo-600 text-white" },
+    corrective: { label: "시정", cls: "bg-orange-500 text-white" },
   };
   const { label, cls } = map[type];
   return (
-    <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-full ${cls}`}>
+    <span
+      className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-full ${cls}`}
+    >
       {label}
     </span>
   );
@@ -39,17 +58,21 @@ function TypeBadge({ type }: { type: RecordType }) {
 // ── 상태 배지 ─────────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    작성중: "bg-gray-100 text-gray-600 border-gray-200",
-    서명중: "bg-blue-50 text-blue-700 border-blue-200",
-    검토중: "bg-amber-50 text-amber-700 border-amber-200",
-    완료:   "bg-green-50 text-green-700 border-green-200",
-    반려:   "bg-red-50 text-red-700 border-red-200",
-    대기:   "bg-gray-100 text-gray-500 border-gray-200",
-    조치중: "bg-blue-50 text-blue-600 border-blue-200",
+    작성중:   "bg-gray-100 text-gray-600 border-gray-200",
+    서명중:   "bg-blue-50 text-blue-700 border-blue-200",
+    검토중:   "bg-amber-50 text-amber-700 border-amber-200",
+    완료:     "bg-green-50 text-green-700 border-green-200",
+    승인완료: "bg-green-50 text-green-700 border-green-200",
+    반려:     "bg-red-50 text-red-700 border-red-200",
+    대기:     "bg-gray-100 text-gray-500 border-gray-200",
+    조치중:   "bg-blue-50 text-blue-600 border-blue-200",
+    작업중지: "bg-red-600 text-white border-red-700",
   };
   const cls = map[status] ?? "bg-gray-100 text-gray-500 border-gray-200";
   return (
-    <span className={`inline-block text-xs px-2 py-0.5 rounded-full border font-medium ${cls}`}>
+    <span
+      className={`inline-block text-xs px-2 py-0.5 rounded-full border font-medium ${cls}`}
+    >
       {status}
     </span>
   );
@@ -72,34 +95,51 @@ export default async function UnifiedRecordsPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const filterType = params.type ?? "";      // 'tbm' | 'inspection' | 'corrective' | ''
-  const filterQ    = params.q ?? "";
-  const dateFrom   = params.date_from ?? "";
-  const dateTo     = params.date_to ?? "";
-  const filterStatus = params.status ?? "";
+  const filterType   = params.type      ?? "";
+  const filterQ      = params.q         ?? "";
+  const dateFrom     = params.date_from ?? "";
+  const dateTo       = params.date_to   ?? "";
+  const filterStatus = params.status    ?? "";
 
   // ── 병렬 조회 ─────────────────────────────────────────────
-  const [tbmRes, insRes, caRes] = await Promise.all([
-    filterType && filterType !== "tbm" ? Promise.resolve({ data: [] }) :
-      supabase.from("tbm_records")
-        .select("id,date,worksite_location,work_type,process_name,supervisor,status")
-        .eq("admin_id", user!.id)
-        .order("date", { ascending: false })
-        .limit(200),
+  const [tbmRes, insRes, caRes, wpRes] = await Promise.all([
+    filterType && filterType !== "tbm"
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("tbm_records")
+          .select("id,date,worksite_location,work_type,process_name,supervisor,status")
+          .eq("admin_id", user!.id)
+          .order("date", { ascending: false })
+          .limit(200),
 
-    filterType && filterType !== "inspection" ? Promise.resolve({ data: [] }) :
-      supabase.from("safety_inspections")
-        .select("id,inspection_date,inspection_area,inspector_name,status")
-        .eq("admin_id", user!.id)
-        .order("inspection_date", { ascending: false })
-        .limit(200),
+    filterType && filterType !== "inspection"
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("safety_inspections")
+          .select("id,inspection_date,inspection_area,inspector_name,status")
+          .eq("admin_id", user!.id)
+          .order("inspection_date", { ascending: false })
+          .limit(200),
 
-    filterType && filterType !== "corrective" ? Promise.resolve({ data: [] }) :
-      supabase.from("corrective_actions")
-        .select("id,issue_title,assigned_to,due_date,status,created_at")
-        .eq("admin_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(200),
+    filterType && filterType !== "corrective"
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("corrective_actions")
+          .select("id,issue_title,assigned_to,due_date,status,created_at")
+          .eq("admin_id", user!.id)
+          .order("created_at", { ascending: false })
+          .limit(200),
+
+    filterType && filterType !== "work-permit"
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("work_permits")
+          .select(
+            "id,grade,permit_type,work_name,work_location,work_company,status,created_at"
+          )
+          .eq("admin_id", user!.id)
+          .order("created_at", { ascending: false })
+          .limit(200),
   ]);
 
   // ── 정규화 ────────────────────────────────────────────────
@@ -113,7 +153,7 @@ export default async function UnifiedRecordsPage({
     status: r.status,
     author: r.supervisor ?? "-",
     detailHref: `/tbm/${r.id}`,
-    printHref:  `/records/tbm/${r.id}`,
+    printHref: `/records/tbm/${r.id}`,
   }));
 
   const insRows: UnifiedRecord[] = (insRes.data ?? []).map((r) => ({
@@ -126,7 +166,7 @@ export default async function UnifiedRecordsPage({
     status: r.status,
     author: r.inspector_name ?? "-",
     detailHref: `/inspections/${r.id}`,
-    printHref:  `/records/inspection/${r.id}`,
+    printHref: `/records/inspection/${r.id}`,
   }));
 
   const caRows: UnifiedRecord[] = (caRes.data ?? []).map((r) => ({
@@ -139,17 +179,31 @@ export default async function UnifiedRecordsPage({
     status: r.status,
     author: r.assigned_to ?? "-",
     detailHref: `/corrective-actions/${r.id}`,
-    printHref:  `/records/corrective-action/${r.id}`,
+    printHref: `/records/corrective-action/${r.id}`,
+  }));
+
+  const wpRows: UnifiedRecord[] = (wpRes.data ?? []).map((r) => ({
+    type: "work-permit",
+    id: r.id,
+    date: (r.created_at as string).substring(0, 10),
+    title: r.work_name ?? r.permit_type,
+    area: r.work_location ?? "-",
+    workType: r.permit_type,
+    status: r.status,
+    author: r.work_company ?? "-",
+    grade: r.grade,
+    detailHref: `/work-permits/${r.id}`,
+    printHref: `/records/work-permit/${r.id}`,
   }));
 
   // ── 병합 + 날짜 정렬 ────────────────────────────────────────
-  let merged = [...tbmRows, ...insRows, ...caRows].sort(
+  let merged = [...tbmRows, ...insRows, ...caRows, ...wpRows].sort(
     (a, b) => b.date.localeCompare(a.date)
   );
 
-  // ── 클라이언트 필터 (URL params 기반) ─────────────────────
-  if (dateFrom) merged = merged.filter((r) => r.date >= dateFrom);
-  if (dateTo)   merged = merged.filter((r) => r.date <= dateTo);
+  // ── 클라이언트 필터 ────────────────────────────────────────
+  if (dateFrom)     merged = merged.filter((r) => r.date >= dateFrom);
+  if (dateTo)       merged = merged.filter((r) => r.date <= dateTo);
   if (filterStatus) merged = merged.filter((r) => r.status === filterStatus);
   if (filterQ) {
     const q = filterQ.toLowerCase();
@@ -163,10 +217,13 @@ export default async function UnifiedRecordsPage({
   }
 
   // ── 통계 ─────────────────────────────────────────────────
-  const totalTbm    = tbmRows.length;
-  const totalIns    = insRows.length;
-  const totalCa     = caRows.length;
-  const unresolved  = merged.filter((r) => !["완료"].includes(r.status)).length;
+  const totalTbm  = tbmRows.length;
+  const totalIns  = insRows.length;
+  const totalCa   = caRows.length;
+  const totalWp   = wpRows.length;
+  const unresolved = merged.filter(
+    (r) => !["완료", "승인완료"].includes(r.status)
+  ).length;
 
   return (
     <div>
@@ -175,30 +232,39 @@ export default async function UnifiedRecordsPage({
         <div>
           <h1 className="text-2xl font-bold text-gray-900">통합 기록 보관함</h1>
           <p className="text-sm text-gray-500 mt-1">
-            TBM · 안전점검 · 시정조치 기록을 검색하고 출력합니다.
+            TBM · 안전점검 · 시정조치 · 작업허가서 기록을 검색하고 출력합니다.
           </p>
         </div>
       </div>
 
       {/* 요약 카드 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
         {[
-          { label: "TBM",    value: totalTbm,   color: "border-l-blue-500 text-blue-700" },
-          { label: "안전점검", value: totalIns, color: "border-l-indigo-500 text-indigo-700" },
-          { label: "시정조치", value: totalCa,  color: "border-l-orange-500 text-orange-700" },
-          { label: "미결 항목", value: unresolved, color: "border-l-red-400 text-red-600" },
+          { label: "TBM",     value: totalTbm,  color: "border-l-blue-500 text-blue-700" },
+          { label: "안전점검", value: totalIns,  color: "border-l-indigo-500 text-indigo-700" },
+          { label: "시정조치", value: totalCa,   color: "border-l-orange-500 text-orange-700" },
+          { label: "작업허가서",value: totalWp,  color: "border-l-red-500 text-red-700" },
+          { label: "미결 항목", value: unresolved, color: "border-l-rose-400 text-rose-600" },
         ].map(({ label, value, color }) => (
-          <div key={label} className={`rounded-xl bg-white border border-gray-200 border-l-4 ${color.split(" ")[0]} p-4 shadow-sm`}>
+          <div
+            key={label}
+            className={`rounded-xl bg-white border border-gray-200 border-l-4 ${color.split(" ")[0]} p-4 shadow-sm`}
+          >
             <p className="text-xs text-gray-500 mb-0.5">{label}</p>
             <p className={`text-2xl font-bold ${color.split(" ")[1]}`}>
-              {value}<span className="text-sm font-normal text-gray-400 ml-1">건</span>
+              {value}
+              <span className="text-sm font-normal text-gray-400 ml-1">건</span>
             </p>
           </div>
         ))}
       </div>
 
       {/* 필터 */}
-      <Suspense fallback={<div className="h-24 rounded-xl bg-white border border-gray-200 animate-pulse mb-4" />}>
+      <Suspense
+        fallback={
+          <div className="h-24 rounded-xl bg-white border border-gray-200 animate-pulse mb-4" />
+        }
+      >
         <UnifiedRecordsFilter />
       </Suspense>
 
@@ -206,7 +272,10 @@ export default async function UnifiedRecordsPage({
       <p className="text-sm text-gray-500 mb-3 mt-4">
         검색 결과 <strong className="text-gray-800">{merged.length}</strong>건
         {(filterQ || filterType || filterStatus || dateFrom || dateTo) && (
-          <Link href="/records" className="ml-2 text-blue-600 text-xs hover:underline">
+          <Link
+            href="/records"
+            className="ml-2 text-blue-600 text-xs hover:underline"
+          >
             필터 초기화
           </Link>
         )}
@@ -217,7 +286,9 @@ export default async function UnifiedRecordsPage({
         <div className="rounded-xl bg-white border border-gray-200 p-12 text-center">
           <div className="text-4xl mb-3">🗂️</div>
           <p className="text-gray-500 font-medium">검색 결과가 없습니다</p>
-          <p className="text-sm text-gray-400 mt-1">필터를 변경하거나 초기화해 보세요.</p>
+          <p className="text-sm text-gray-400 mt-1">
+            필터를 변경하거나 초기화해 보세요.
+          </p>
         </div>
       ) : (
         <div className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden">
@@ -226,7 +297,7 @@ export default async function UnifiedRecordsPage({
             <span>유형</span>
             <span>날짜</span>
             <span>제목 / 구역</span>
-            <span>공종</span>
+            <span>공종/유형</span>
             <span>상태</span>
             <span>작성/담당</span>
             <span className="text-right">액션</span>
@@ -234,12 +305,13 @@ export default async function UnifiedRecordsPage({
 
           <div className="divide-y divide-gray-100">
             {merged.map((r) => (
-              <div key={`${r.type}-${r.id}`}
+              <div
+                key={`${r.type}-${r.id}`}
                 className="grid grid-cols-1 sm:grid-cols-[72px_90px_1fr_80px_90px_90px_130px] gap-x-3 gap-y-1 px-4 py-3 hover:bg-gray-50 transition-colors"
               >
                 {/* 유형 */}
                 <div className="flex items-center">
-                  <TypeBadge type={r.type} />
+                  <TypeBadge type={r.type} grade={r.grade} />
                 </div>
 
                 {/* 날짜 */}
@@ -260,7 +332,7 @@ export default async function UnifiedRecordsPage({
                 </div>
 
                 {/* 공종 */}
-                <div className="flex items-center text-xs text-gray-500">
+                <div className="flex items-center text-xs text-gray-500 truncate">
                   {r.workType}
                 </div>
 

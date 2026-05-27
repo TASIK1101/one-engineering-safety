@@ -4,20 +4,23 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition, Suspense } from "react";
 
 const TYPE_OPTIONS = [
-  { value: "",           label: "전체" },
-  { value: "tbm",        label: "TBM" },
-  { value: "inspection", label: "안전점검" },
-  { value: "corrective", label: "시정조치" },
+  { value: "",             label: "전체" },
+  { value: "tbm",          label: "TBM" },
+  { value: "inspection",   label: "안전점검" },
+  { value: "corrective",   label: "시정조치" },
+  { value: "work-permit",  label: "작업허가서" },
 ];
 
 const STATUS_OPTIONS: Record<string, { value: string; label: string }[]> = {
   "": [
-    { value: "서명중", label: "서명중" },
-    { value: "검토중", label: "검토중" },
-    { value: "완료",   label: "완료" },
-    { value: "반려",   label: "반려" },
-    { value: "대기",   label: "대기" },
-    { value: "조치중", label: "조치중" },
+    { value: "서명중",   label: "서명중" },
+    { value: "검토중",   label: "검토중" },
+    { value: "완료",     label: "완료" },
+    { value: "승인완료", label: "승인완료" },
+    { value: "반려",     label: "반려" },
+    { value: "대기",     label: "대기" },
+    { value: "조치중",   label: "조치중" },
+    { value: "작업중지", label: "작업중지" },
   ],
   tbm: [
     { value: "서명중", label: "서명중" },
@@ -35,6 +38,14 @@ const STATUS_OPTIONS: Record<string, { value: string; label: string }[]> = {
     { value: "검토중", label: "검토중" },
     { value: "완료",   label: "완료" },
     { value: "반려",   label: "반려" },
+  ],
+  "work-permit": [
+    { value: "작성중",   label: "작성중" },
+    { value: "서명중",   label: "서명중" },
+    { value: "검토중",   label: "검토중" },
+    { value: "승인완료", label: "승인완료" },
+    { value: "반려",     label: "반려" },
+    { value: "작업중지", label: "작업중지" },
   ],
 };
 

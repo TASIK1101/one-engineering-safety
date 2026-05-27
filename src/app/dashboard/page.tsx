@@ -102,6 +102,14 @@ export default async function DashboardPage() {
             highlight
           />
           <QuickLink
+            href="/work-permits/new"
+            icon="📋"
+            title="작업허가서 작성"
+            desc="A/B급 작업허가서를 작성하고 작업자 서명 및 승인을 진행합니다."
+            action="허가서 작성하기"
+            color="red"
+          />
+          <QuickLink
             href="/inspections/new"
             icon="🔍"
             title="오늘 안전점검 작성"
@@ -207,6 +215,7 @@ function QuickLink({
   icon,
   action,
   highlight = false,
+  color,
 }: {
   href: string;
   title: string;
@@ -214,23 +223,38 @@ function QuickLink({
   icon: string;
   action: string;
   highlight?: boolean;
+  color?: "red";
 }) {
+  const isRed = color === "red";
+
+  const cardCls = highlight
+    ? "bg-green-50 border-green-200 hover:border-green-400"
+    : isRed
+      ? "bg-red-50 border-red-200 hover:border-red-400"
+      : "bg-white border-gray-200 hover:border-blue-300";
+
+  const titleCls = highlight
+    ? "text-green-800"
+    : isRed
+      ? "text-red-800"
+      : "text-gray-900";
+
+  const actionCls = highlight
+    ? "text-green-700"
+    : isRed
+      ? "text-red-600"
+      : "text-blue-600";
+
   return (
     <Link
       href={href}
-      className={`flex items-start gap-4 rounded-xl border p-5 shadow-sm hover:shadow-md transition-all group ${
-        highlight
-          ? "bg-green-50 border-green-200 hover:border-green-400"
-          : "bg-white border-gray-200 hover:border-blue-300"
-      }`}
+      className={`flex items-start gap-4 rounded-xl border p-5 shadow-sm hover:shadow-md transition-all group ${cardCls}`}
     >
       <span className="text-2xl shrink-0">{icon}</span>
       <div className="min-w-0 flex-1">
-        <p className={`font-semibold ${highlight ? "text-green-800" : "text-gray-900"}`}>
-          {title}
-        </p>
+        <p className={`font-semibold ${titleCls}`}>{title}</p>
         <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{desc}</p>
-        <p className={`text-xs font-medium mt-2 ${highlight ? "text-green-700" : "text-blue-600"} group-hover:underline`}>
+        <p className={`text-xs font-medium mt-2 ${actionCls} group-hover:underline`}>
           {action} →
         </p>
       </div>

@@ -116,6 +116,121 @@ export type TbmAttendee = {
   created_at: string;
 };
 
+// ── 작업허가서 모듈 ───────────────────────────────────────────
+
+export type WorkPermitTemplate = {
+  id: string;
+  grade: 'A' | 'B';
+  permit_type: string;
+  title: string;
+  checklist_items: WorkPermitChecklistItem[];
+  approval_roles: string[];
+  requires_gas_measurement: boolean;
+  requires_entry_register: boolean;
+  requires_related_company_agreement: boolean;
+  active: boolean;
+  created_at: string;
+};
+
+export type WorkPermitChecklistItem = {
+  category: string;
+  item_text: string;
+};
+
+export type WorkPermit = {
+  id: string;
+  admin_id: string;
+  permit_token: string;
+  grade: 'A' | 'B';
+  permit_type: string;
+  title: string;
+  work_company: string | null;
+  work_department: string | null;
+  work_period_start: string | null;
+  work_period_end: string | null;
+  work_location: string | null;
+  work_name: string | null;
+  worker_count: number | null;
+  supervisor_name: string | null;
+  emergency_contact: string | null;
+  ventilation_method: string | null;
+  watcher_name: string | null;
+  status: '작성중' | '서명중' | '검토중' | '승인완료' | '반려' | '작업중지';
+  rejection_reason: string | null;
+  created_by: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WorkPermitItem = {
+  id: string;
+  permit_id: string;
+  category: string;
+  item_text: string;
+  apply_status: '신청' | '해당없음';
+  field_confirmed: boolean;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WorkPermitWorker = {
+  id: string;
+  permit_id: string;
+  employee_id: string | null;
+  worker_name: string;
+  phone_last4: string | null;
+  company_name: string | null;
+  is_manual: boolean;
+  signature_data: string | null;
+  signed_at: string | null;
+  created_at: string;
+};
+
+export type WorkPermitApproval = {
+  id: string;
+  permit_id: string;
+  approver_role: string;
+  approver_name: string;
+  approval_status: '대기' | '승인' | '반려';
+  signature_data: string | null;
+  approved_at: string | null;
+  created_at: string;
+};
+
+export type WorkPermitGasMeasurement = {
+  id: string;
+  permit_id: string;
+  measured_at: string;
+  oxygen: number | null;
+  combustible_gas: number | null;
+  carbon_monoxide: number | null;
+  measured_by: string | null;
+  created_at: string;
+};
+
+export type ConfinedSpaceEntryLog = {
+  id: string;
+  permit_id: string;
+  worker_name: string;
+  entry_time: string | null;
+  exit_time: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+export type RelatedCompanyAgreement = {
+  id: string;
+  permit_id: string;
+  company_name: string;
+  contact_name: string | null;
+  signature_data: string | null;
+  signed_at: string | null;
+  created_at: string;
+};
+
 // ── 안전점검 + 시정조치 모듈 ──────────────────────────────────
 
 export type SafetyInspection = {
