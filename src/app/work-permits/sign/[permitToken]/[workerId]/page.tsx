@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@/lib/supabase/server";
-import { notFound } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
 import LogoMark from "@/components/ui/LogoMark";
 import WorkPermitWorkerGuard from "@/components/work-permit/WorkPermitWorkerGuard";
@@ -14,26 +13,56 @@ export default async function WorkPermitWorkerSignPage({
   params: Promise<{ permitToken: string; workerId: string }>;
 }) {
   const { permitToken, workerId } = await params;
-  const supabase = await createClient();
+  const admin = createAdminClient();
 
-  const { data: permit } = await supabase
+  const { data: permit } = await admin
     .from("work_permits")
     .select("*")
     .eq("permit_token", permitToken)
     .single();
 
-  if (!permit) notFound();
+  if (!permit) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white border border-red-200 rounded-2xl p-8 shadow-sm text-center max-w-sm w-full">
+          <span className="text-4xl block mb-4">⚠️</span>
+          <p className="text-base font-bold text-gray-800 mb-2">
+            유효하지 않거나 만료된 서명 링크입니다
+          </p>
+          <p className="text-sm text-gray-500">관리자에게 문의하세요.</p>
+        </div>
+      </div>
+    );
+  }
 
-  const { data: worker } = await supabase
+  const { data: worker } = await admin
     .from("work_permit_workers")
     .select("*")
     .eq("id", workerId)
     .eq("permit_id", permit.id)
     .single();
 
-  if (!worker) notFound();
+  if (!worker) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white border border-red-200 rounded-2xl p-8 shadow-sm text-center max-w-sm w-full">
+          <span className="text-4xl block mb-4">❌</span>
+          <p className="text-base font-bold text-gray-800 mb-2">
+            작업자 정보를 찾을 수 없습니다
+          </p>
+          <p className="text-sm text-gray-500 mb-4">관리자에게 문의하세요.</p>
+          <Link
+            href={`/work-permits/sign/${permitToken}`}
+            className="text-sm text-blue-600 underline"
+          >
+            처음으로 돌아가기
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
-  const { data: items } = await supabase
+  const { data: items } = await admin
     .from("work_permit_items")
     .select("*")
     .eq("permit_id", permit.id)
