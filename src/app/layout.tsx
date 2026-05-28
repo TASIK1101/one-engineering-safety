@@ -15,6 +15,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "원엔지니어링 안전교육 관리",
   description: "주식회사 원엔지니어링 안전교육 이행 기록 및 전자서명 증빙 관리 시스템",
+  icons: {
+    icon: "/logo/one-engineering-logo.png",
+    apple: "/logo/one-engineering-logo.png",
+  },
 };
 
 export default function RootLayout({

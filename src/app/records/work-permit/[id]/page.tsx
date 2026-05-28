@@ -115,6 +115,12 @@ export default async function WorkPermitPrintPage({
 
         {/* ── 문서 헤더 ── */}
         <div className="text-center pb-5 mb-6" style={{ borderBottom: "2.5px solid #111" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo/one-engineering-logo.png"
+            alt="주식회사 원엔지니어링"
+            style={{ height: "48px", objectFit: "contain", margin: "0 auto 6px" }}
+          />
           <p style={{ fontSize: "12px", color: "#555", marginBottom: "4px", letterSpacing: "1px" }}>
             주식회사 원엔지니어링
           </p>
