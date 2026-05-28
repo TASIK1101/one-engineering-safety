@@ -21,7 +21,7 @@ import WorkPermitStatusAlert from "@/components/work-permit/WorkPermitStatusAler
 import WorkPermitBasicInfo from "@/components/work-permit/WorkPermitBasicInfo";
 import WorkPermitChecklist from "@/components/work-permit/WorkPermitChecklist";
 import WorkPermitWorkerSignBox from "@/components/work-permit/WorkPermitWorkerSignBox";
-import WorkPermitApprovalHistory from "@/components/work-permit/WorkPermitApprovalHistory";
+import WorkPermitApprovalSignBox from "@/components/work-permit/WorkPermitApprovalSignBox";
 
 export default async function WorkPermitDetailPage({
   params,
@@ -143,7 +143,11 @@ export default async function WorkPermitDetailPage({
         isRejected={isRejected}
         permitToken={p.permit_token}
       />
-      <WorkPermitApprovalHistory approvals={approvalList} />
+      <WorkPermitApprovalSignBox
+        permitId={id}
+        permitStatus={p.status}
+        approvals={approvalList}
+      />
       <WorkPermitApproveBox permitId={id} status={p.status} />
     </div>
   );

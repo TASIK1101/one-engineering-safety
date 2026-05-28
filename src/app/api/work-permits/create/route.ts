@@ -133,6 +133,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 4. 승인 단계 3개 자동 생성 (작성자, 안전전담자, 소장대표)
+    await admin.from("work_permit_approvals").insert([
+      { permit_id: permit.id, approver_role: "작성자",    approver_name: "", approval_status: "대기" },
+      { permit_id: permit.id, approver_role: "안전전담자", approver_name: "", approval_status: "대기" },
+      { permit_id: permit.id, approver_role: "소장대표",  approver_name: "", approval_status: "대기" },
+    ]);
+
     return NextResponse.json({ id: permit.id });
   } catch (err) {
     console.error("[work-permits/create] unexpected:", err);
