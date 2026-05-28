@@ -15,12 +15,21 @@ export default async function InspectionsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: inspections } = await supabase
+  const { data: inspections, error: fetchError } = await supabase
     .from("safety_inspections")
     .select("*, safety_inspection_items(condition_status)")
     .eq("admin_id", user!.id)
     .order("inspection_date", { ascending: false })
     .limit(50);
+
+  if (fetchError) {
+    return (
+      <div className="rounded-xl bg-red-50 border border-red-200 p-6 text-center">
+        <p className="text-red-700 font-semibold mb-1">데이터를 불러오지 못했습니다</p>
+        <p className="text-sm text-red-500">{fetchError.message}</p>
+      </div>
+    );
+  }
 
   const list = (inspections ?? []) as InspectionWithItems[];
 

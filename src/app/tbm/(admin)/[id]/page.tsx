@@ -19,12 +19,23 @@ export default async function TbmDetailPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: record } = await supabase
+  const { data: record, error: recordError } = await supabase
     .from("tbm_records")
     .select("*")
     .eq("id", id)
     .eq("admin_id", user!.id)
     .single();
+
+  if (recordError && recordError.code !== "PGRST116") {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="rounded-xl bg-red-50 border border-red-200 p-6 text-center">
+          <p className="text-red-700 font-semibold mb-1">데이터를 불러오지 못했습니다</p>
+          <p className="text-sm text-red-500">{recordError.message}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!record) notFound();
 

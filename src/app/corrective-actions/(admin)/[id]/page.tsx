@@ -20,11 +20,22 @@ export default async function CorrectiveActionDetailPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: actionData } = await supabase
+  const { data: actionData, error: actionError } = await supabase
     .from("corrective_actions")
     .select("*")
     .eq("id", id)
     .single();
+
+  if (actionError && actionError.code !== "PGRST116") {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="rounded-xl bg-red-50 border border-red-200 p-6 text-center">
+          <p className="text-red-700 font-semibold mb-1">데이터를 불러오지 못했습니다</p>
+          <p className="text-sm text-red-500">{actionError.message}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!actionData || actionData.admin_id !== user!.id) notFound();
 
