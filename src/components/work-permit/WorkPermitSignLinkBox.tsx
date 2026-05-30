@@ -13,7 +13,11 @@ export default function WorkPermitSignLinkBox({ permitToken }: Props) {
   const [showQR, setShowQR] = useState(false);
 
   useEffect(() => {
-    setSignUrl(`${window.location.origin}/work-permits/sign/${permitToken}`);
+    // NEXT_PUBLIC_APP_URL이 설정된 경우 프로덕션 고정 URL 사용, 없으면 현재 origin
+    const origin =
+      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+      window.location.origin;
+    setSignUrl(`${origin}/work-permits/sign/${permitToken}`);
   }, [permitToken]);
 
   async function handleCopy() {
