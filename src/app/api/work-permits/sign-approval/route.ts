@@ -13,7 +13,6 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
     const {
-      approvalId,
       permitId,
       action,
       role,
@@ -21,11 +20,10 @@ export async function POST(req: NextRequest) {
       signatureData,
       rejectionReason,
     } = (await req.json()) as {
-      approvalId?: string;
       permitId: string;
       action: "approve" | "reject";
       role: string;
-      approverName: string;
+      approverName?: string;
       signatureData?: string;
       rejectionReason?: string;
     };
@@ -37,17 +35,32 @@ export async function POST(req: NextRequest) {
     const admin = createAdminClient();
 
     // 허가서 소유권 확인
-    const { data: permit } = await admin
+    const { data: permit, error: permitError } = await admin
       .from("work_permits")
       .select("status, admin_id")
       .eq("id", permitId)
       .single();
 
-    if (!permit || permit.admin_id !== user.id) {
+    if (permitError || !permit) {
+      console.error("[sign-approval] permit lookup:", permitError);
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+    if (permit.admin_id !== user.id) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
 
     const now = new Date().toISOString();
+
+    // 해당 역할의 기존 행을 permit_id + approver_role 기준으로 조회
+    // (중복이 있다면 가장 오래된 것을 기준 행으로 사용)
+    const { data: existing } = await admin
+      .from("work_permit_approvals")
+      .select("id")
+      .eq("permit_id", permitId)
+      .eq("approver_role", role)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (action === "approve") {
       if (!approverName?.trim()) {
@@ -57,54 +70,45 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "signature_required" }, { status: 400 });
       }
 
-      if (approvalId) {
-        // 기존 레코드 업데이트
+      const approvePayload = {
+        approver_name: approverName.trim(),
+        approval_status: "승인",
+        signature_data: signatureData,
+        approved_at: now,
+      };
+
+      if (existing) {
         const { error } = await admin
           .from("work_permit_approvals")
-          .update({
-            approver_name: approverName.trim(),
-            approval_status: "승인",
-            signature_data: signatureData,
-            approved_at: now,
-          })
-          .eq("id", approvalId)
-          .eq("permit_id", permitId);
+          .update(approvePayload)
+          .eq("id", existing.id);
         if (error) {
-          console.error("[sign-approval] update:", error);
-          return NextResponse.json({ error: "update_failed" }, { status: 500 });
+          console.error("[sign-approval] update approve:", error);
+          return NextResponse.json({ error: "update_failed", detail: error.message }, { status: 500 });
         }
       } else {
-        // 레코드가 없으면 신규 생성
-        const { error } = await admin.from("work_permit_approvals").insert({
-          permit_id: permitId,
-          approver_role: role,
-          approver_name: approverName.trim(),
-          approval_status: "승인",
-          signature_data: signatureData,
-          approved_at: now,
-        });
+        const { error } = await admin
+          .from("work_permit_approvals")
+          .insert({ permit_id: permitId, approver_role: role, ...approvePayload });
         if (error) {
-          console.error("[sign-approval] insert:", error);
-          return NextResponse.json({ error: "insert_failed" }, { status: 500 });
+          console.error("[sign-approval] insert approve:", error);
+          return NextResponse.json({ error: "insert_failed", detail: error.message }, { status: 500 });
         }
       }
 
-      // 3개 역할 모두 승인 여부 확인
+      // 3개 역할 전부 승인되면 허가서 상태를 승인완료로 변경
       const { data: allApprovals } = await admin
         .from("work_permit_approvals")
         .select("approver_role, approval_status")
         .eq("permit_id", permitId)
         .in("approver_role", APPROVAL_ROLES);
 
-      const allApproved =
-        APPROVAL_ROLES.every((r) =>
-          allApprovals?.some(
-            (a) => a.approver_role === r && a.approval_status === "승인"
-          )
-        );
+      const allApproved = APPROVAL_ROLES.every((r) =>
+        allApprovals?.some((a) => a.approver_role === r && a.approval_status === "승인")
+      );
 
       if (allApproved) {
-        await admin
+        const { error: statusErr } = await admin
           .from("work_permits")
           .update({
             status: "승인완료",
@@ -113,6 +117,9 @@ export async function POST(req: NextRequest) {
             updated_at: now,
           })
           .eq("id", permitId);
+        if (statusErr) {
+          console.error("[sign-approval] status update:", statusErr);
+        }
       }
     } else {
       // action === "reject"
@@ -120,28 +127,33 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "reason_required" }, { status: 400 });
       }
 
-      if (approvalId) {
-        await admin
+      const rejectPayload = {
+        approver_name: approverName?.trim() || "",
+        approval_status: "반려",
+        approved_at: now,
+      };
+
+      if (existing) {
+        const { error } = await admin
           .from("work_permit_approvals")
-          .update({
-            approver_name: approverName?.trim() || "",
-            approval_status: "반려",
-            approved_at: now,
-          })
-          .eq("id", approvalId)
-          .eq("permit_id", permitId);
+          .update(rejectPayload)
+          .eq("id", existing.id);
+        if (error) {
+          console.error("[sign-approval] update reject:", error);
+          return NextResponse.json({ error: "update_failed", detail: error.message }, { status: 500 });
+        }
       } else {
-        await admin.from("work_permit_approvals").insert({
-          permit_id: permitId,
-          approver_role: role,
-          approver_name: approverName?.trim() || "",
-          approval_status: "반려",
-          approved_at: now,
-        });
+        const { error } = await admin
+          .from("work_permit_approvals")
+          .insert({ permit_id: permitId, approver_role: role, ...rejectPayload });
+        if (error) {
+          console.error("[sign-approval] insert reject:", error);
+          return NextResponse.json({ error: "insert_failed", detail: error.message }, { status: 500 });
+        }
       }
 
       // 허가서를 반려 처리
-      await admin
+      const { error: permitUpdateErr } = await admin
         .from("work_permits")
         .update({
           status: "반려",
@@ -149,6 +161,10 @@ export async function POST(req: NextRequest) {
           updated_at: now,
         })
         .eq("id", permitId);
+      if (permitUpdateErr) {
+        console.error("[sign-approval] permit reject update:", permitUpdateErr);
+        return NextResponse.json({ error: "update_failed", detail: permitUpdateErr.message }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ ok: true });

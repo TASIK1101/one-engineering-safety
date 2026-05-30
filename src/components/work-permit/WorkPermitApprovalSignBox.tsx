@@ -15,8 +15,8 @@ interface Props {
 
 type ModalState =
   | { type: "none" }
-  | { type: "sign"; role: string; approval: WorkPermitApproval | null }
-  | { type: "reject"; role: string; approval: WorkPermitApproval | null };
+  | { type: "sign"; role: string }
+  | { type: "reject"; role: string };
 
 const STATUS_STYLE: Record<string, string> = {
   승인: "bg-green-100 text-green-700 border-green-200",
@@ -37,11 +37,17 @@ export default function WorkPermitApprovalSignBox({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 검토중 또는 이후 상태에서만 서명 가능
   const canSign = permitStatus === "검토중";
 
-  function findApproval(role: string) {
-    return approvals.find((a) => a.approver_role === role) ?? null;
+  // 중복 행이 있는 경우 승인 > 반려 > 대기 우선순위로 반환
+  function findApproval(role: string): WorkPermitApproval | null {
+    const all = approvals.filter((a) => a.approver_role === role);
+    return (
+      all.find((a) => a.approval_status === "승인") ??
+      all.find((a) => a.approval_status === "반려") ??
+      all[0] ??
+      null
+    );
   }
 
   function openSignModal(role: string) {
@@ -49,7 +55,7 @@ export default function WorkPermitApprovalSignBox({
     setSignerName(existing?.approver_name || "");
     setSignatureData(null);
     setError("");
-    setModal({ type: "sign", role, approval: existing });
+    setModal({ type: "sign", role });
   }
 
   function openRejectModal(role: string) {
@@ -57,7 +63,7 @@ export default function WorkPermitApprovalSignBox({
     setSignerName(existing?.approver_name || "");
     setRejectionReason("");
     setError("");
-    setModal({ type: "reject", role, approval: existing });
+    setModal({ type: "reject", role });
   }
 
   function closeModal() {
@@ -68,15 +74,23 @@ export default function WorkPermitApprovalSignBox({
     setError("");
   }
 
+  function formatApiError(d: Record<string, string>): string {
+    const detail = d.detail ? ` (${d.detail})` : "";
+    switch (d.error) {
+      case "approver_name_required": return "서명자 이름을 입력해주세요.";
+      case "signature_required": return "서명을 입력해주세요.";
+      case "reason_required": return "반려 사유를 입력해주세요.";
+      case "unauthorized": return "로그인이 필요합니다. 페이지를 새로고침해 주세요.";
+      case "not_found": return "허가서를 찾을 수 없거나 접근 권한이 없습니다.";
+      case "update_failed": return `DB 업데이트 오류${detail}`;
+      case "insert_failed": return `DB 저장 오류${detail}`;
+      default: return `처리 중 오류가 발생했습니다. (${d.error ?? "unknown"}${detail})`;
+    }
+  }
+
   async function handleApprove() {
-    if (!signatureData) {
-      setError("서명을 입력해주세요.");
-      return;
-    }
-    if (!signerName.trim()) {
-      setError("서명자 이름을 입력해주세요.");
-      return;
-    }
+    if (!signatureData) { setError("서명을 입력해주세요."); return; }
+    if (!signerName.trim()) { setError("서명자 이름을 입력해주세요."); return; }
     if (modal.type !== "sign") return;
 
     setLoading(true);
@@ -86,7 +100,6 @@ export default function WorkPermitApprovalSignBox({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        approvalId: modal.approval?.id ?? null,
         permitId,
         action: "approve",
         role: modal.role,
@@ -99,9 +112,7 @@ export default function WorkPermitApprovalSignBox({
 
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setError(d.error === "approver_name_required" ? "서명자 이름을 입력해주세요." :
-               d.error === "signature_required" ? "서명을 입력해주세요." :
-               "처리 중 오류가 발생했습니다.");
+      setError(formatApiError(d));
       return;
     }
 
@@ -110,10 +121,7 @@ export default function WorkPermitApprovalSignBox({
   }
 
   async function handleReject() {
-    if (!rejectionReason.trim()) {
-      setError("반려 사유를 입력해주세요.");
-      return;
-    }
+    if (!rejectionReason.trim()) { setError("반려 사유를 입력해주세요."); return; }
     if (modal.type !== "reject") return;
 
     setLoading(true);
@@ -123,7 +131,6 @@ export default function WorkPermitApprovalSignBox({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        approvalId: modal.approval?.id ?? null,
         permitId,
         action: "reject",
         role: modal.role,
@@ -135,7 +142,8 @@ export default function WorkPermitApprovalSignBox({
     setLoading(false);
 
     if (!res.ok) {
-      setError("처리 중 오류가 발생했습니다.");
+      const d = await res.json().catch(() => ({}));
+      setError(formatApiError(d));
       return;
     }
 
@@ -162,19 +170,16 @@ export default function WorkPermitApprovalSignBox({
                 className="flex items-center justify-between p-4 rounded-xl border border-gray-100 bg-gray-50"
               >
                 <div className="flex items-center gap-4 min-w-0 flex-1">
-                  {/* 역할 */}
                   <span className="text-sm font-semibold text-gray-700 w-20 shrink-0">
                     {role}
                   </span>
 
-                  {/* 상태 배지 */}
                   <span
                     className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 ${STATUS_STYLE[status] ?? STATUS_STYLE["대기"]}`}
                   >
                     {status}
                   </span>
 
-                  {/* 서명자 정보 */}
                   {isSigned && a && (
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="text-sm text-gray-700 font-medium truncate">
@@ -200,7 +205,6 @@ export default function WorkPermitApprovalSignBox({
                   )}
                 </div>
 
-                {/* 서명하기 / 반려 버튼 */}
                 {canSign && status === "대기" && (
                   <div className="flex gap-2 shrink-0 ml-3">
                     <button
@@ -243,7 +247,6 @@ export default function WorkPermitApprovalSignBox({
                 {modal.role} 서명
               </h3>
 
-              {/* 서명자 이름 */}
               <div className="mb-4">
                 <label className="block text-xs font-semibold text-gray-600 mb-1">
                   서명자 이름 <span className="text-red-500">*</span>
@@ -257,7 +260,6 @@ export default function WorkPermitApprovalSignBox({
                 />
               </div>
 
-              {/* 서명 캔버스 */}
               <div className="mb-4">
                 <p className="text-xs font-semibold text-gray-600 mb-1">
                   전자서명 <span className="text-red-500">*</span>
@@ -269,7 +271,7 @@ export default function WorkPermitApprovalSignBox({
               </div>
 
               {error && (
-                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3 break-all">
                   {error}
                 </p>
               )}
@@ -331,7 +333,7 @@ export default function WorkPermitApprovalSignBox({
               </div>
 
               {error && (
-                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3 break-all">
                   {error}
                 </p>
               )}
