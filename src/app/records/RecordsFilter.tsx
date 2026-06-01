@@ -9,6 +9,7 @@ const TYPE_OPTIONS = [
   { value: "inspection",   label: "안전점검" },
   { value: "corrective",   label: "시정조치" },
   { value: "work-permit",  label: "작업허가서" },
+  { value: "ppe",          label: "보호구 지급" },
 ];
 
 const STATUS_OPTIONS: Record<string, { value: string; label: string }[]> = {
@@ -21,6 +22,11 @@ const STATUS_OPTIONS: Record<string, { value: string; label: string }[]> = {
     { value: "대기",     label: "대기" },
     { value: "조치중",   label: "조치중" },
     { value: "작업중지", label: "작업중지" },
+    { value: "지급중",   label: "지급중" },
+    { value: "반납완료", label: "반납완료" },
+    { value: "교체완료", label: "교체완료" },
+    { value: "분실",     label: "분실" },
+    { value: "폐기",     label: "폐기" },
   ],
   tbm: [
     { value: "서명중", label: "서명중" },
@@ -46,6 +52,13 @@ const STATUS_OPTIONS: Record<string, { value: string; label: string }[]> = {
     { value: "승인완료", label: "승인완료" },
     { value: "반려",     label: "반려" },
     { value: "작업중지", label: "작업중지" },
+  ],
+  ppe: [
+    { value: "지급중",   label: "지급중" },
+    { value: "반납완료", label: "반납완료" },
+    { value: "교체완료", label: "교체완료" },
+    { value: "분실",     label: "분실" },
+    { value: "폐기",     label: "폐기" },
   ],
 };
 

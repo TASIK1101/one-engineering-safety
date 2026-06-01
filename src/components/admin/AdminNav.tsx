@@ -14,6 +14,7 @@ const navItems = [
   { href: "/work-permits",       label: "작업허가서" },
   { href: "/inspections",        label: "안전점검" },
   { href: "/corrective-actions", label: "시정조치" },
+  { href: "/ppe",                label: "보호구 관리" },
   { href: "/records",            label: "통합 기록" },
   { href: "/reports",            label: "이수기록 출력" },
 ];
@@ -35,7 +36,7 @@ export default function AdminNav() {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white shadow-sm">
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white shadow-sm print:hidden">
       {/* ── 데스크탑 / 태블릿 ── */}
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2.5">
         {/* 로고 */}
