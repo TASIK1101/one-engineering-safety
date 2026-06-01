@@ -32,7 +32,6 @@ export default function NewTrainingPage() {
 function NewTrainingForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
 
   const initialType = searchParams.get("type") ?? "regular_training";
 
@@ -113,6 +112,7 @@ function NewTrainingForm() {
     setLoading(true);
     setError("");
 
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

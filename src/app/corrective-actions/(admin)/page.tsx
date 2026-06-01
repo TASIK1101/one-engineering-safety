@@ -11,11 +11,20 @@ export default async function CorrectiveActionsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: actions } = await supabase
+  const { data: actions, error: fetchError } = await supabase
     .from("corrective_actions")
     .select("*")
     .eq("admin_id", user!.id)
     .order("created_at", { ascending: false });
+
+  if (fetchError) {
+    return (
+      <div className="rounded-xl bg-red-50 border border-red-200 p-6 text-center">
+        <p className="text-red-700 font-semibold mb-1">데이터를 불러오지 못했습니다</p>
+        <p className="text-sm text-red-500">{fetchError.message}</p>
+      </div>
+    );
+  }
 
   const list = (actions ?? []) as CorrectiveAction[];
 

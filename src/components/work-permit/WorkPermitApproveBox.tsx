@@ -12,24 +12,16 @@ export default function WorkPermitApproveBox({ permitId, status }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [approverName, setApproverName] = useState("");
-  const [rejectionReason, setRejectionReason] = useState("");
   const [stopReason, setStopReason] = useState("");
-  const [showRejectForm, setShowRejectForm] = useState(false);
   const [showStopForm, setShowStopForm] = useState(false);
 
-  async function callApprove(action: "approve" | "reject" | "review") {
+  async function callReview() {
     setLoading(true);
     setError("");
     const res = await fetch("/api/work-permits/approve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        permitId,
-        action,
-        approvedBy: approverName.trim() || "관리자",
-        rejectionReason: rejectionReason.trim() || undefined,
-      }),
+      body: JSON.stringify({ permitId, action: "review" }),
     });
     if (!res.ok) {
       setError("처리 중 오류가 발생했습니다.");
@@ -75,85 +67,23 @@ export default function WorkPermitApproveBox({ permitId, status }: Props) {
       {status === "서명중" && (
         <div className="space-y-3">
           <p className="text-sm text-gray-600">
-            서명 수집이 완료되면 검토 단계로 이동한 뒤 승인할 수 있습니다.
+            작업자 서명 수집이 완료되면 검토 단계로 이동한 뒤 각 관리자가 서명할 수 있습니다.
           </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => callApprove("review")}
-              disabled={loading}
-              className="flex-1 py-2.5 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 rounded-xl transition-colors"
-            >
-              {loading ? "처리 중…" : "검토 단계로 이동"}
-            </button>
-            <button
-              onClick={() => callApprove("approve")}
-              disabled={loading}
-              className="flex-1 py-2.5 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-300 rounded-xl transition-colors"
-            >
-              {loading ? "처리 중…" : "바로 승인완료"}
-            </button>
-          </div>
+          <button
+            onClick={callReview}
+            disabled={loading}
+            className="w-full py-2.5 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 rounded-xl transition-colors"
+          >
+            {loading ? "처리 중…" : "검토 단계로 이동"}
+          </button>
         </div>
       )}
 
-      {/* 검토중 → 승인완료 또는 반려 */}
+      {/* 검토중 → 위의 "관리자 서명 확인" 섹션에서 처리 */}
       {status === "검토중" && (
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">승인자 이름</label>
-            <input
-              type="text"
-              value={approverName}
-              onChange={(e) => setApproverName(e.target.value)}
-              placeholder="김안전"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-            />
-          </div>
-
-          {!showRejectForm ? (
-            <div className="flex gap-2">
-              <button
-                onClick={() => callApprove("approve")}
-                disabled={loading}
-                className="flex-1 py-2.5 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-300 rounded-xl transition-colors"
-              >
-                {loading ? "처리 중…" : "✅ 승인완료"}
-              </button>
-              <button
-                onClick={() => setShowRejectForm(true)}
-                disabled={loading}
-                className="px-5 py-2.5 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl transition-colors"
-              >
-                반려
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="반려 사유를 입력하세요"
-                rows={3}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-400 resize-none"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => callApprove("reject")}
-                  disabled={loading || !rejectionReason.trim()}
-                  className="flex-1 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-300 rounded-xl transition-colors"
-                >
-                  {loading ? "처리 중…" : "반려 확정"}
-                </button>
-                <button
-                  onClick={() => setShowRejectForm(false)}
-                  className="px-4 py-2.5 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50"
-                >
-                  취소
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <p className="text-sm text-gray-500">
+          위의 <span className="font-semibold text-gray-700">관리자 서명 확인</span> 섹션에서 각 역할별로 서명 또는 반려를 처리해주세요.
+        </p>
       )}
 
       {/* 승인완료 → 작업중지 */}

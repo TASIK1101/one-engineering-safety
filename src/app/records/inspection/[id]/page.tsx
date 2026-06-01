@@ -74,6 +74,8 @@ export default async function InspectionPrintPage({
 
         {/* 문서 헤더 */}
         <div className="text-center border-b-2 border-gray-800 pb-4 mb-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo/one-engineering-logo.png" alt="주식회사 원엔지니어링" className="h-10 object-contain mx-auto mb-1" />
           <p className="text-sm text-gray-600 mb-1">주식회사 원엔지니어링</p>
           <h1 className="text-xl font-bold text-gray-900">안전보건관리책임자 안전점검 일지</h1>
           <p className="text-xs text-gray-500 mt-1">문서번호: INS-{insp.inspection_date}</p>

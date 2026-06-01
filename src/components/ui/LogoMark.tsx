@@ -1,14 +1,30 @@
-/**
- * Fallback logo mark rendered as inline SVG.
- * Used instead of /logo.png which may not exist.
- */
+"use client";
+
+import { useState } from "react";
+
 type Props = {
   size?: number;
   className?: string;
 };
 
 export default function LogoMark({ size = 40, className = "" }: Props) {
+  const [imgError, setImgError] = useState(false);
   const fontSize = Math.round(size * 0.36);
+
+  if (!imgError) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src="/logo/one-engineering-logo.png"
+        alt="주식회사 원엔지니어링"
+        width={size}
+        height={size}
+        className={`shrink-0 object-contain ${className}`}
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
   return (
     <svg
       width={size}

@@ -9,7 +9,6 @@ import Link from "next/link";
 
 export default function NewEmployeePage() {
   const router = useRouter();
-  const supabase = createClient();
   const [form, setForm] = useState({ name: "", phone: "", department: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,6 +26,7 @@ export default function NewEmployeePage() {
     setLoading(true);
     setError("");
 
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

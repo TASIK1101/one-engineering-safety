@@ -115,6 +115,12 @@ export default async function WorkPermitPrintPage({
 
         {/* ── 문서 헤더 ── */}
         <div className="text-center pb-5 mb-6" style={{ borderBottom: "2.5px solid #111" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo/one-engineering-logo.png"
+            alt="주식회사 원엔지니어링"
+            style={{ height: "48px", objectFit: "contain", margin: "0 auto 6px" }}
+          />
           <p style={{ fontSize: "12px", color: "#555", marginBottom: "4px", letterSpacing: "1px" }}>
             주식회사 원엔지니어링
           </p>
@@ -468,58 +474,98 @@ export default async function WorkPermitPrintPage({
           </table>
         </section>
 
-        {/* ── 승인 확인란 ── */}
+        {/* ── 승인 서명란 ── */}
         <section style={{ marginBottom: "20px" }}>
-          <h2 style={sectionTitleStyle}>승인 확인란</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-            <tbody>
-              <tr>
-                <th style={thStyle}>최종 상태</th>
-                <td style={{ ...tdStyle, fontWeight: "bold", fontSize: "13px" }}>
-                  {p.status}
-                </td>
-                <th style={thStyle}>승인일시</th>
-                <td style={tdStyle}>
-                  {p.approved_at ? new Date(p.approved_at).toLocaleString("ko-KR") : "-"}
-                </td>
-              </tr>
-              <tr>
-                <th style={thStyle}>승인자</th>
-                <td style={tdStyle} colSpan={3}>{p.approved_by || "-"}</td>
-              </tr>
-              {approvalList.length > 0 && approvalList.map((a) => (
-                <tr key={a.id}>
-                  <th style={thStyle}>{a.approver_role}</th>
-                  <td style={tdStyle}>
-                    {a.approver_name} ({a.approval_status})
-                    {a.approved_at
-                      ? ` — ${new Date(a.approved_at).toLocaleString("ko-KR")}`
-                      : ""}
-                  </td>
-                  <td colSpan={2} style={{ ...tdStyle, textAlign: "center", height: "50px" }}>
-                    {a.signature_data ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={a.signature_data}
-                        alt={`${a.approver_name} 서명`}
-                        style={{ maxHeight: "44px", maxWidth: "120px", margin: "0 auto", display: "block" }}
-                      />
-                    ) : (
-                      <span style={{ color: "#aaa" }}>(서명란)</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {p.rejection_reason && (
-                <tr>
-                  <th style={thStyle}>사유</th>
-                  <td style={{ ...tdStyle, whiteSpace: "pre-wrap" }} colSpan={3}>
-                    {p.rejection_reason}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <h2 style={sectionTitleStyle}>승인 서명란</h2>
+          {(() => {
+            const ROLES = ["작성자", "안전전담자", "소장대표"] as const;
+            return (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                <thead>
+                  <tr style={{ background: "#f3f4f6" }}>
+                    {ROLES.map((role) => (
+                      <th
+                        key={role}
+                        style={{ ...thStyle, width: "33.33%", textAlign: "center", fontSize: "12px" }}
+                      >
+                        {role}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* 서명 이미지 행 */}
+                  <tr>
+                    {ROLES.map((role) => {
+                      const a = approvalList.find((x) => x.approver_role === role);
+                      return (
+                        <td
+                          key={role}
+                          style={{
+                            ...tdStyle,
+                            height: "80px",
+                            textAlign: "center",
+                            verticalAlign: "middle",
+                            padding: "6px",
+                          }}
+                        >
+                          {a?.signature_data ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={a.signature_data}
+                              alt={`${a.approver_name} 서명`}
+                              style={{
+                                maxHeight: "68px",
+                                maxWidth: "140px",
+                                margin: "0 auto",
+                                display: "block",
+                              }}
+                            />
+                          ) : (
+                            <span style={{ color: "#ccc", fontSize: "11px" }}>미서명</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  {/* 이름 행 */}
+                  <tr>
+                    {ROLES.map((role) => {
+                      const a = approvalList.find((x) => x.approver_role === role);
+                      return (
+                        <td
+                          key={role}
+                          style={{ ...tdStyle, textAlign: "center", fontSize: "11px" }}
+                        >
+                          {a?.approver_name ? (
+                            <>
+                              <div style={{ fontWeight: "600", marginBottom: "2px" }}>
+                                {a.approver_name}
+                              </div>
+                              <div style={{ color: "#666", fontSize: "10px" }}>
+                                {a.approval_status === "승인" && a.approved_at
+                                  ? new Date(a.approved_at).toLocaleString("ko-KR")
+                                  : a.approval_status === "반려"
+                                  ? `반려 (${a.approved_at ? new Date(a.approved_at).toLocaleString("ko-KR") : "-"})`
+                                  : "대기"}
+                              </div>
+                            </>
+                          ) : (
+                            <span style={{ color: "#bbb" }}>-</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tbody>
+              </table>
+            );
+          })()}
+          {p.rejection_reason && (
+            <div style={{ marginTop: "8px", padding: "8px 12px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: "6px", fontSize: "11px", color: "#b91c1c" }}>
+              <strong>반려 사유:</strong> {p.rejection_reason}
+            </div>
+          )}
         </section>
 
         {/* ── 비고 ── */}
