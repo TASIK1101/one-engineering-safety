@@ -66,7 +66,7 @@ export default async function CorrectiveActionPrintPage({
           <p className="text-sm text-gray-600 mb-1">주식회사 원엔지니어링</p>
           <h1 className="text-xl font-bold text-gray-900">시정조치 처리 기록</h1>
           <p className="text-xs text-gray-500 mt-1">
-            문서번호: CA-{(ca.created_at as string).substring(0, 10)}
+            문서번호: CA-{(ca.created_at as string).substring(0, 10)} · 출력일: {new Date().toLocaleDateString("ko-KR")}
           </p>
         </div>
 

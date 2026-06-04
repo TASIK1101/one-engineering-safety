@@ -160,6 +160,16 @@ export default async function DashboardPage() {
           />
         </div>
       </div>
+
+      {/* 관리자 도구 */}
+      <div className="mt-6 pt-4 border-t border-gray-100">
+        <Link
+          href="/admin/system-check"
+          className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
+        >
+          시스템 점검 →
+        </Link>
+      </div>
     </div>
   );
 }
