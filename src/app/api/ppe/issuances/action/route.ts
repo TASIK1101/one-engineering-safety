@@ -88,7 +88,19 @@ export async function POST(req: NextRequest) {
         .eq("id", issuance.ppe_item_id)
         .single();
 
-      const expected = calcReplacementDate(actionDate, item?.replacement_cycle_months ?? null);
+      // 1순위: 품목의 교체주기
+      let expected: string | null = calcReplacementDate(actionDate, item?.replacement_cycle_months ?? null);
+
+      // 2순위: 기존 지급의 issued_at ~ expected_replacement_date 구간으로 주기 추론
+      if (!expected && issuance.issued_at && issuance.expected_replacement_date) {
+        const diffMs =
+          new Date(issuance.expected_replacement_date + "T00:00:00").getTime() -
+          new Date(issuance.issued_at + "T00:00:00").getTime();
+        const inferredMonths = Math.round(diffMs / (1000 * 60 * 60 * 24 * 30.44));
+        if (inferredMonths > 0) {
+          expected = calcReplacementDate(actionDate, inferredMonths);
+        }
+      }
 
       const { data: newIss, error: newErr } = await admin
         .from("ppe_issuances")
