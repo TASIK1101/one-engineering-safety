@@ -6,7 +6,7 @@ import { Suspense } from "react";
 import UnifiedRecordsFilter from "./RecordsFilter";
 
 // ── 정규화된 통합 레코드 타입 ─────────────────────────────────
-type RecordType = "tbm" | "inspection" | "corrective" | "work-permit";
+type RecordType = "tbm" | "inspection" | "corrective" | "work-permit" | "ppe";
 
 type UnifiedRecord = {
   type: RecordType;
@@ -44,8 +44,9 @@ function TypeBadge({ type, grade }: { type: RecordType; grade?: string }) {
     tbm:        { label: "TBM",  cls: "bg-blue-800 text-white" },
     inspection: { label: "점검", cls: "bg-indigo-600 text-white" },
     corrective: { label: "시정", cls: "bg-orange-500 text-white" },
+    ppe:        { label: "보호구", cls: "bg-teal-600 text-white" },
   };
-  const { label, cls } = map[type];
+  const { label, cls } = map[type as "tbm" | "inspection" | "corrective" | "ppe"];
   return (
     <span
       className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-full ${cls}`}
@@ -67,6 +68,11 @@ function StatusBadge({ status }: { status: string }) {
     대기:     "bg-gray-100 text-gray-500 border-gray-200",
     조치중:   "bg-blue-50 text-blue-600 border-blue-200",
     작업중지: "bg-red-600 text-white border-red-700",
+    지급중:   "bg-blue-50 text-blue-700 border-blue-200",
+    반납완료: "bg-gray-100 text-gray-600 border-gray-200",
+    교체완료: "bg-amber-50 text-amber-700 border-amber-200",
+    분실:     "bg-red-50 text-red-700 border-red-200",
+    폐기:     "bg-slate-200 text-slate-600 border-slate-300",
   };
   const cls = map[status] ?? "bg-gray-100 text-gray-500 border-gray-200";
   return (
@@ -102,7 +108,7 @@ export default async function UnifiedRecordsPage({
   const filterStatus = params.status    ?? "";
 
   // ── 병렬 조회 ─────────────────────────────────────────────
-  const [tbmRes, insRes, caRes, wpRes] = await Promise.all([
+  const [tbmRes, insRes, caRes, wpRes, ppeRes] = await Promise.all([
     filterType && filterType !== "tbm"
       ? Promise.resolve({ data: [] })
       : supabase
@@ -139,6 +145,17 @@ export default async function UnifiedRecordsPage({
           )
           .eq("admin_id", user!.id)
           .order("created_at", { ascending: false })
+          .limit(200),
+
+    filterType && filterType !== "ppe"
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("ppe_issuances")
+          .select(
+            "id,employee_id,issued_at,status,expected_replacement_date,quantity,employees(name,department),ppe_items(item_name,category)"
+          )
+          .eq("admin_id", user!.id)
+          .order("issued_at", { ascending: false })
           .limit(200),
   ]);
 
@@ -196,8 +213,39 @@ export default async function UnifiedRecordsPage({
     printHref: `/records/work-permit/${r.id}`,
   }));
 
+  // 보호구 지급 — 중첩 관계는 객체/배열 모두 올 수 있어 안전하게 정규화
+  type PpeRow = {
+    id: string;
+    employee_id: string;
+    issued_at: string;
+    status: string;
+    expected_replacement_date: string | null;
+    quantity: number;
+    employees: { name: string; department: string | null } | { name: string; department: string | null }[] | null;
+    ppe_items: { item_name: string; category: string | null } | { item_name: string; category: string | null }[] | null;
+  };
+  const pickOne = <T,>(v: T | T[] | null | undefined): T | null =>
+    Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
+
+  const ppeRows: UnifiedRecord[] = ((ppeRes.data ?? []) as unknown as PpeRow[]).map((r) => {
+    const emp = pickOne(r.employees);
+    const item = pickOne(r.ppe_items);
+    return {
+      type: "ppe" as const,
+      id: r.id,
+      date: r.issued_at,
+      title: item?.item_name ?? "보호구",
+      area: emp?.name ?? "-",
+      workType: item?.category ?? "-",
+      status: r.status,
+      author: emp?.name ?? "-",
+      detailHref: `/ppe/employees/${r.employee_id}`,
+      printHref: `/records/ppe/issue/${r.id}`,
+    };
+  });
+
   // ── 병합 + 날짜 정렬 ────────────────────────────────────────
-  let merged = [...tbmRows, ...insRows, ...caRows, ...wpRows].sort(
+  let merged = [...tbmRows, ...insRows, ...caRows, ...wpRows, ...ppeRows].sort(
     (a, b) => b.date.localeCompare(a.date)
   );
 
@@ -221,8 +269,9 @@ export default async function UnifiedRecordsPage({
   const totalIns  = insRows.length;
   const totalCa   = caRows.length;
   const totalWp   = wpRows.length;
+  const totalPpe  = ppeRows.length;
   const unresolved = merged.filter(
-    (r) => !["완료", "승인완료"].includes(r.status)
+    (r) => !["완료", "승인완료", "반납완료", "교체완료", "폐기"].includes(r.status)
   ).length;
 
   return (
@@ -238,12 +287,13 @@ export default async function UnifiedRecordsPage({
       </div>
 
       {/* 요약 카드 */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 mb-6">
         {[
           { label: "TBM",     value: totalTbm,  color: "border-l-blue-500 text-blue-700" },
           { label: "안전점검", value: totalIns,  color: "border-l-indigo-500 text-indigo-700" },
           { label: "시정조치", value: totalCa,   color: "border-l-orange-500 text-orange-700" },
           { label: "작업허가서",value: totalWp,  color: "border-l-red-500 text-red-700" },
+          { label: "보호구",   value: totalPpe,  color: "border-l-teal-500 text-teal-700" },
           { label: "미결 항목", value: unresolved, color: "border-l-rose-400 text-rose-600" },
         ].map(({ label, value, color }) => (
           <div

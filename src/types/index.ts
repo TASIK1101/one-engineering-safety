@@ -281,3 +281,73 @@ export type CorrectiveAction = {
   created_at: string;
   updated_at: string;
 };
+
+// ── 보호구 지급·관리 모듈 ─────────────────────────────────────
+
+export type PpeIssuanceStatus = "지급중" | "반납완료" | "교체완료" | "분실" | "폐기";
+export type PpeActionType = "지급" | "반납" | "교체" | "분실" | "폐기" | "수정";
+
+export type PpeItem = {
+  id: string;
+  admin_id: string;
+  item_name: string;
+  category: string;
+  model_name: string | null;
+  manufacturer: string | null;
+  certification_number: string | null;
+  certification_date: string | null;
+  certification_agency: string | null;
+  certificate_file_url: string | null;
+  replacement_cycle_months: number | null;
+  description: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PpeIssuance = {
+  id: string;
+  admin_id: string;
+  employee_id: string;
+  ppe_item_id: string;
+  issued_at: string;
+  quantity: number;
+  status: PpeIssuanceStatus;
+  expected_replacement_date: string | null;
+  returned_at: string | null;
+  replaced_at: string | null;
+  issue_reason: string | null;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PpeIssueHistory = {
+  id: string;
+  issuance_id: string;
+  action_type: PpeActionType;
+  action_date: string;
+  actor_name: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+export type PpeCertificate = {
+  id: string;
+  ppe_item_id: string;
+  certificate_name: string;
+  certification_number: string | null;
+  certification_date: string | null;
+  certification_agency: string | null;
+  model_name: string | null;
+  manufacturer: string | null;
+  file_url: string | null;
+  created_at: string;
+};
+
+// 조인 결과용 보조 타입
+export type PpeIssuanceWithRelations = PpeIssuance & {
+  employees?: Pick<Employee, "id" | "name" | "department" | "phone"> | null;
+  ppe_items?: Pick<PpeItem, "id" | "item_name" | "category" | "model_name" | "certification_number"> | null;
+};
