@@ -351,3 +351,115 @@ export type PpeIssuanceWithRelations = PpeIssuance & {
   employees?: Pick<Employee, "id" | "name" | "department" | "phone"> | null;
   ppe_items?: Pick<PpeItem, "id" | "item_name" | "category" | "model_name" | "certification_number"> | null;
 };
+
+// ── 비상조치 및 위기대응 모듈 ──────────────────────────────────
+
+export type EmergencyContactType = "사내" | "원청" | "소방" | "경찰" | "병원" | "기타";
+
+export type EmergencyContact = {
+  id: string;
+  admin_id: string;
+  contact_type: string;
+  organization_name: string;
+  contact_name: string | null;
+  phone: string;
+  secondary_phone: string | null;
+  description: string | null;
+  display_order: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EmergencyEquipmentStatus = "정상" | "점검필요" | "사용불가" | "교체예정";
+
+export type EmergencyEquipment = {
+  id: string;
+  admin_id: string;
+  equipment_name: string;
+  category: string;
+  location: string;
+  quantity: number;
+  status: EmergencyEquipmentStatus;
+  last_inspected_at: string | null;
+  next_inspection_date: string | null;
+  inspector_name: string | null;
+  note: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EmergencyScenario = {
+  id: string;
+  admin_id: string;
+  scenario_type: string;
+  title: string;
+  overview: string | null;
+  initial_response: string[];
+  evacuation_actions: string[];
+  rescue_actions: string[];
+  hazard_removal_actions: string[];
+  secondary_damage_prevention: string[];
+  reporting_actions: string[];
+  role_assignments: string[];
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StopWorkStatus = "작업중지" | "조치중" | "재개승인" | "종료";
+
+export type StopWorkRecord = {
+  id: string;
+  admin_id: string;
+  occurred_at: string;
+  worksite_location: string;
+  work_type: string | null;
+  reporter_name: string;
+  stop_reason: string;
+  hazard_description: string | null;
+  immediate_action: string | null;
+  corrective_action: string | null;
+  status: StopWorkStatus;
+  restart_approved_by: string | null;
+  restart_approved_at: string | null;
+  restart_note: string | null;
+  photo_urls: string[];
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DrillResultStatus = "작성중" | "검토중" | "완료";
+
+export type EmergencyDrill = {
+  id: string;
+  admin_id: string;
+  drill_date: string;
+  scenario_id: string | null;
+  drill_type: string;
+  location: string;
+  supervisor_name: string | null;
+  participant_count: number;
+  summary: string | null;
+  issues_found: string | null;
+  improvement_actions: string | null;
+  result_status: DrillResultStatus;
+  photo_urls: string[];
+  approved_by: string | null;
+  approved_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EmergencyDrillAttendee = {
+  id: string;
+  drill_id: string;
+  employee_id: string | null;
+  employee_name: string;
+  attended: boolean;
+  note: string | null;
+  created_at: string;
+};

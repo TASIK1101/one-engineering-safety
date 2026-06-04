@@ -6,7 +6,7 @@ import { Suspense } from "react";
 import UnifiedRecordsFilter from "./RecordsFilter";
 
 // ── 정규화된 통합 레코드 타입 ─────────────────────────────────
-type RecordType = "tbm" | "inspection" | "corrective" | "work-permit" | "ppe";
+type RecordType = "tbm" | "inspection" | "corrective" | "work-permit" | "ppe" | "stop-work" | "emergency-drill";
 
 type UnifiedRecord = {
   type: RecordType;
@@ -45,8 +45,10 @@ function TypeBadge({ type, grade }: { type: RecordType; grade?: string }) {
     inspection: { label: "점검", cls: "bg-indigo-600 text-white" },
     corrective: { label: "시정", cls: "bg-orange-500 text-white" },
     ppe:        { label: "보호구", cls: "bg-teal-600 text-white" },
+    "stop-work": { label: "중지", cls: "bg-red-600 text-white" },
+    "emergency-drill": { label: "훈련", cls: "bg-cyan-600 text-white" },
   };
-  const { label, cls } = map[type as "tbm" | "inspection" | "corrective" | "ppe"];
+  const { label, cls } = map[type as "tbm" | "inspection" | "corrective" | "ppe" | "stop-work" | "emergency-drill"];
   return (
     <span
       className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-full ${cls}`}
@@ -73,6 +75,8 @@ function StatusBadge({ status }: { status: string }) {
     교체완료: "bg-amber-50 text-amber-700 border-amber-200",
     분실:     "bg-red-50 text-red-700 border-red-200",
     폐기:     "bg-slate-200 text-slate-600 border-slate-300",
+    재개승인: "bg-amber-50 text-amber-700 border-amber-200",
+    종료:     "bg-gray-100 text-gray-600 border-gray-200",
   };
   const cls = map[status] ?? "bg-gray-100 text-gray-500 border-gray-200";
   return (
@@ -108,7 +112,7 @@ export default async function UnifiedRecordsPage({
   const filterStatus = params.status    ?? "";
 
   // ── 병렬 조회 ─────────────────────────────────────────────
-  const [tbmRes, insRes, caRes, wpRes, ppeRes] = await Promise.all([
+  const [tbmRes, insRes, caRes, wpRes, ppeRes, swRes, drillRes] = await Promise.all([
     filterType && filterType !== "tbm"
       ? Promise.resolve({ data: [] })
       : supabase
@@ -156,6 +160,24 @@ export default async function UnifiedRecordsPage({
           )
           .eq("admin_id", user!.id)
           .order("issued_at", { ascending: false })
+          .limit(200),
+
+    filterType && filterType !== "stop-work"
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("stop_work_records")
+          .select("id,occurred_at,worksite_location,work_type,reporter_name,stop_reason,status")
+          .eq("admin_id", user!.id)
+          .order("occurred_at", { ascending: false })
+          .limit(200),
+
+    filterType && filterType !== "emergency-drill"
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("emergency_drills")
+          .select("id,drill_date,drill_type,location,supervisor_name,result_status")
+          .eq("admin_id", user!.id)
+          .order("drill_date", { ascending: false })
           .limit(200),
   ]);
 
@@ -244,8 +266,53 @@ export default async function UnifiedRecordsPage({
     };
   });
 
+  // 작업중지 기록
+  type SwRow = {
+    id: string;
+    occurred_at: string;
+    worksite_location: string;
+    work_type: string | null;
+    reporter_name: string;
+    stop_reason: string;
+    status: string;
+  };
+  const swRows: UnifiedRecord[] = ((swRes.data ?? []) as unknown as SwRow[]).map((r) => ({
+    type: "stop-work" as const,
+    id: r.id,
+    date: (r.occurred_at ?? "").substring(0, 10),
+    title: r.stop_reason,
+    area: r.worksite_location ?? "-",
+    workType: r.work_type ?? "-",
+    status: r.status,
+    author: r.reporter_name ?? "-",
+    detailHref: `/emergency/stop-work/${r.id}`,
+    printHref: `/records/emergency/stop-work/${r.id}`,
+  }));
+
+  // 비상대응훈련
+  type DrillRow = {
+    id: string;
+    drill_date: string;
+    drill_type: string;
+    location: string;
+    supervisor_name: string | null;
+    result_status: string;
+  };
+  const drillRows: UnifiedRecord[] = ((drillRes.data ?? []) as unknown as DrillRow[]).map((r) => ({
+    type: "emergency-drill" as const,
+    id: r.id,
+    date: r.drill_date,
+    title: r.drill_type,
+    area: r.location ?? "-",
+    workType: r.drill_type,
+    status: r.result_status,
+    author: r.supervisor_name ?? "-",
+    detailHref: `/emergency/drills/${r.id}`,
+    printHref: `/records/emergency/drill/${r.id}`,
+  }));
+
   // ── 병합 + 날짜 정렬 ────────────────────────────────────────
-  let merged = [...tbmRows, ...insRows, ...caRows, ...wpRows, ...ppeRows].sort(
+  let merged = [...tbmRows, ...insRows, ...caRows, ...wpRows, ...ppeRows, ...swRows, ...drillRows].sort(
     (a, b) => b.date.localeCompare(a.date)
   );
 
@@ -270,8 +337,10 @@ export default async function UnifiedRecordsPage({
   const totalCa   = caRows.length;
   const totalWp   = wpRows.length;
   const totalPpe  = ppeRows.length;
+  const totalSw   = swRows.length;
+  const totalDrill = drillRows.length;
   const unresolved = merged.filter(
-    (r) => !["완료", "승인완료", "반납완료", "교체완료", "폐기"].includes(r.status)
+    (r) => !["완료", "승인완료", "반납완료", "교체완료", "폐기", "종료"].includes(r.status)
   ).length;
 
   return (
@@ -281,19 +350,21 @@ export default async function UnifiedRecordsPage({
         <div>
           <h1 className="text-2xl font-bold text-gray-900">통합 기록 보관함</h1>
           <p className="text-sm text-gray-500 mt-1">
-            TBM · 안전점검 · 시정조치 · 작업허가서 기록을 검색하고 출력합니다.
+            TBM · 안전점검 · 시정조치 · 작업허가서 · 보호구 · 작업중지 · 비상훈련 기록을 검색하고 출력합니다.
           </p>
         </div>
       </div>
 
       {/* 요약 카드 */}
-      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
         {[
           { label: "TBM",     value: totalTbm,  color: "border-l-blue-500 text-blue-700" },
           { label: "안전점검", value: totalIns,  color: "border-l-indigo-500 text-indigo-700" },
           { label: "시정조치", value: totalCa,   color: "border-l-orange-500 text-orange-700" },
           { label: "작업허가서",value: totalWp,  color: "border-l-red-500 text-red-700" },
           { label: "보호구",   value: totalPpe,  color: "border-l-teal-500 text-teal-700" },
+          { label: "작업중지", value: totalSw,   color: "border-l-rose-500 text-rose-700" },
+          { label: "비상훈련", value: totalDrill, color: "border-l-cyan-500 text-cyan-700" },
           { label: "미결 항목", value: unresolved, color: "border-l-rose-400 text-rose-600" },
         ].map(({ label, value, color }) => (
           <div

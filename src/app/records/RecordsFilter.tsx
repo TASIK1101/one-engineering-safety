@@ -10,6 +10,8 @@ const TYPE_OPTIONS = [
   { value: "corrective",   label: "시정조치" },
   { value: "work-permit",  label: "작업허가서" },
   { value: "ppe",          label: "보호구 지급" },
+  { value: "stop-work",    label: "작업중지" },
+  { value: "emergency-drill", label: "비상훈련" },
 ];
 
 const STATUS_OPTIONS: Record<string, { value: string; label: string }[]> = {
@@ -27,6 +29,9 @@ const STATUS_OPTIONS: Record<string, { value: string; label: string }[]> = {
     { value: "교체완료", label: "교체완료" },
     { value: "분실",     label: "분실" },
     { value: "폐기",     label: "폐기" },
+    { value: "재개승인", label: "재개승인" },
+    { value: "종료",     label: "종료" },
+    { value: "작성중",   label: "작성중" },
   ],
   tbm: [
     { value: "서명중", label: "서명중" },
@@ -59,6 +64,17 @@ const STATUS_OPTIONS: Record<string, { value: string; label: string }[]> = {
     { value: "교체완료", label: "교체완료" },
     { value: "분실",     label: "분실" },
     { value: "폐기",     label: "폐기" },
+  ],
+  "stop-work": [
+    { value: "작업중지", label: "작업중지" },
+    { value: "조치중",   label: "조치중" },
+    { value: "재개승인", label: "재개승인" },
+    { value: "종료",     label: "종료" },
+  ],
+  "emergency-drill": [
+    { value: "작성중", label: "작성중" },
+    { value: "검토중", label: "검토중" },
+    { value: "완료",   label: "완료" },
   ],
 };
 
