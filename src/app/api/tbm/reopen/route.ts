@@ -3,6 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { recomputeTbmStatus } from "@/lib/tbm";
 
+/**
+ * 완료된 TBM의 전자확인을 무효화하고 다시 수정/재승인 가능한 상태로 되돌린다.
+ * (승인 완료 후 수정하려면 기존 승인 무효화 및 재승인 절차)
+ */
 export async function POST(req: NextRequest) {
   try {
     const supabaseServer = await createClient();
@@ -11,46 +15,21 @@ export async function POST(req: NextRequest) {
     } = await supabaseServer.auth.getUser();
     if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-    const body = await req.json();
-    const { tbmId, ...fields } = body as { tbmId: string; [key: string]: unknown };
-
-    if (!tbmId) {
-      return NextResponse.json({ error: "tbmId required" }, { status: 400 });
-    }
+    const { tbmId } = (await req.json()) as { tbmId: string };
+    if (!tbmId) return NextResponse.json({ error: "tbmId required" }, { status: 400 });
 
     const admin = createAdminClient();
 
     const { data: rec } = await admin
       .from("tbm_records")
-      .select("status, admin_id, locked_at")
+      .select("admin_id")
       .eq("id", tbmId)
       .single();
-
     if (!rec || rec.admin_id !== user.id) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
 
-    // 완료(잠금)된 TBM은 수정 불가 — 먼저 승인 무효화(/api/tbm/reopen) 필요
-    if (rec.status === "완료" || rec.locked_at) {
-      return NextResponse.json({ error: "locked" }, { status: 403 });
-    }
-
-    // 내용 수정 시 기존 전자확인을 무효화하고 재확인을 거치게 한다
-    const { error } = await admin
-      .from("tbm_records")
-      .update({
-        ...fields,
-        rejection_reason: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", tbmId);
-
-    if (error) {
-      console.error("[tbm/update]", error);
-      return NextResponse.json({ error: "server_error" }, { status: 500 });
-    }
-
-    // 승인 row 초기화 (서명/승인일시/반려사유 제거)
+    // 전자확인 무효화
     await admin
       .from("tbm_approvals")
       .update({
@@ -63,11 +42,22 @@ export async function POST(req: NextRequest) {
       })
       .eq("tbm_record_id", tbmId);
 
+    // 잠금 해제
+    await admin
+      .from("tbm_records")
+      .update({
+        locked_at: null,
+        approved_at: null,
+        approved_by: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", tbmId);
+
     await recomputeTbmStatus(admin, tbmId);
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[tbm/update]", err);
+    console.error("[tbm/reopen]", err);
     return NextResponse.json({ error: "server_error" }, { status: 500 });
   }
 }

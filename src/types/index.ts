@@ -101,6 +101,13 @@ export type TbmRecord = {
   approved_by: string | null;
   approved_at: string | null;
   rejection_reason: string | null;
+  // ── 역할별 전자확인(승인) 설정 ──
+  author_employee_id: string | null;
+  safety_manager_employee_id: string | null;
+  representative_employee_id: string | null;
+  author_is_safety_manager: boolean;
+  require_representative_approval: boolean;
+  locked_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -113,6 +120,24 @@ export type TbmAttendee = {
   attendance_status: "대기" | "서명완료" | "불참";
   signature_data: string | null;
   signed_at: string | null;
+  created_at: string;
+};
+
+export type TbmApprovalRole = "안전전담자" | "소장대표";
+
+export type TbmApproval = {
+  id: string;
+  tbm_record_id: string;
+  approver_role: TbmApprovalRole;
+  approver_employee_id: string | null;
+  approver_name: string | null;
+  approval_status: "대기" | "승인" | "반려";
+  signature_data: string | null;
+  rejection_reason: string | null;
+  approved_at: string | null;
+  approval_token: string;
+  signed_ip: string | null;
+  signed_user_agent: string | null;
   created_at: string;
 };
 
