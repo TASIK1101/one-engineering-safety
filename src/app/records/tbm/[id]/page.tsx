@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import PrintButton from "@/components/ui/PrintButton";
-import type { TbmRecord, TbmAttendee } from "@/types";
+import type { TbmRecord, TbmAttendee, TbmApproval } from "@/types";
 
 export default async function TbmPrintPage({
   params,
@@ -24,14 +24,17 @@ export default async function TbmPrintPage({
 
   if (!record) notFound();
 
-  const { data: attendees } = await supabase
-    .from("tbm_attendees")
-    .select("*")
-    .eq("tbm_record_id", id)
-    .order("created_at");
+  const [{ data: attendees }, { data: approvalsData }] = await Promise.all([
+    supabase.from("tbm_attendees").select("*").eq("tbm_record_id", id).order("created_at"),
+    supabase.from("tbm_approvals").select("*").eq("tbm_record_id", id).order("created_at"),
+  ]);
 
   const tbm = record as TbmRecord;
   const att = (attendees ?? []) as TbmAttendee[];
+  const approvals = (approvalsData ?? []) as TbmApproval[];
+  const hasApprovals = approvals.length > 0;
+  const safetyApproval = approvals.find((a) => a.approver_role === "안전전담자");
+  const repApproval = approvals.find((a) => a.approver_role === "소장대표");
 
   return (
     <div className="min-h-screen bg-gray-100 print:bg-white">
@@ -203,19 +206,73 @@ export default async function TbmPrintPage({
           </section>
         )}
 
-        {/* 날인란 */}
-        <section className="mt-10 border-t border-gray-300 pt-6">
-          <div className="grid grid-cols-3 gap-8 text-center text-sm">
-            {["작 성 자", "안전전담자", "소장 / 대표"].map((label) => (
-              <div key={label}>
-                <p className="font-medium text-gray-700 mb-8">{label}</p>
-                <div className="border-b border-gray-400 h-12" />
-                <p className="text-xs text-gray-400 mt-1">(서명 또는 날인)</p>
-              </div>
-            ))}
-          </div>
-        </section>
+        {/* 확인란 */}
+        {hasApprovals ? (
+          /* 전자확인이 구성된 TBM — 수집된 전자서명 자동 표시 */
+          <section className="mt-10 border-t border-gray-300 pt-6">
+            <div className="grid grid-cols-2 gap-8 text-center text-sm">
+              {/* TBM 실시·확인자 (안전전담자) */}
+              <SignatureCell
+                label="TBM 실시·확인자"
+                approval={safetyApproval}
+              />
+              {/* 소장/대표 */}
+              {tbm.require_representative_approval ? (
+                <SignatureCell label="소장 / 대표" approval={repApproval} />
+              ) : (
+                <div>
+                  <p className="font-medium text-gray-700 mb-2">소장 / 대표</p>
+                  <div className="border border-gray-200 rounded h-20 flex items-center justify-center text-xs text-gray-300">
+                    해당 없음
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        ) : (
+          /* 레거시 — 수기 날인란 유지 */
+          <section className="mt-10 border-t border-gray-300 pt-6">
+            <div className="grid grid-cols-3 gap-8 text-center text-sm">
+              {["작 성 자", "안전전담자", "소장 / 대표"].map((label) => (
+                <div key={label}>
+                  <p className="font-medium text-gray-700 mb-8">{label}</p>
+                  <div className="border-b border-gray-400 h-12" />
+                  <p className="text-xs text-gray-400 mt-1">(서명 또는 날인)</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
+    </div>
+  );
+}
+
+function SignatureCell({
+  label,
+  approval,
+}: {
+  label: string;
+  approval: TbmApproval | undefined;
+}) {
+  const approved = approval?.approval_status === "승인";
+  return (
+    <div>
+      <p className="font-medium text-gray-700 mb-2">{label}</p>
+      <div className="border border-gray-300 rounded h-20 flex items-center justify-center bg-white">
+        {approved && approval?.signature_data ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={approval.signature_data} alt={`${label} 전자서명`} className="max-h-16 object-contain" />
+        ) : (
+          <span className="text-xs text-gray-300">(전자확인 대기)</span>
+        )}
+      </div>
+      <p className="text-xs text-gray-500 mt-1">
+        {approval?.approver_name ?? "-"}
+        {approved && approval?.approved_at
+          ? ` · ${new Date(approval.approved_at).toLocaleDateString("ko-KR")}`
+          : ""}
+      </p>
     </div>
   );
 }

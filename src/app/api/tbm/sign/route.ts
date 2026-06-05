@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recomputeTbmStatus } from "@/lib/tbm";
 
 export async function POST(req: NextRequest) {
   try {
@@ -41,7 +42,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "server_error" }, { status: 500 });
     }
 
-    // 모든 참석자가 서명하면 상태를 '검토중'으로 변경
+    // 참석자 서명 + 역할별 전자확인 상태를 종합해 TBM 상태 재계산
+    // (참석자 전원 서명 시 검토중/완료로 자동 전이)
     const { data: allAttendees } = await admin
       .from("tbm_attendees")
       .select("attendance_status")
@@ -52,15 +54,7 @@ export async function POST(req: NextRequest) {
         a.attendance_status === "서명완료" || a.attendance_status === "불참"
     );
 
-    if (allDone) {
-      await admin
-        .from("tbm_records")
-        .update({
-          status: "검토중",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", attendee.tbm_record_id);
-    }
+    await recomputeTbmStatus(admin, attendee.tbm_record_id);
 
     return NextResponse.json({ ok: true, allSigned: allDone });
   } catch (err) {

@@ -32,6 +32,13 @@ export default function TBMNewForm({ employees, worksites, templates }: Props) {
   const [safetyManager, setSafetyManager] = useState("");
   const [siteManager, setSiteManager] = useState("");
 
+  // ── 역할별 전자확인(승인) 설정 ──────────────────────────────
+  const [authorEmployeeId, setAuthorEmployeeId] = useState("");
+  const [authorIsSafetyManager, setAuthorIsSafetyManager] = useState(true);
+  const [safetyManagerEmployeeId, setSafetyManagerEmployeeId] = useState("");
+  const [requireRep, setRequireRep] = useState(false);
+  const [representativeEmployeeId, setRepresentativeEmployeeId] = useState("");
+
   // ── 위험요인 ───────────────────────────────────────────────
   const [hazardItems, setHazardItems] = useState<string[]>([]);
   const [newHazardItem, setNewHazardItem] = useState("");
@@ -172,6 +179,12 @@ export default function TBMNewForm({ employees, worksites, templates }: Props) {
             employee_id: a.id,
             employee_name: a.name,
           })),
+          // 역할별 전자확인 설정
+          author_employee_id: authorEmployeeId || null,
+          author_is_safety_manager: authorIsSafetyManager,
+          safety_manager_employee_id: safetyManagerEmployeeId || null,
+          require_representative_approval: requireRep,
+          representative_employee_id: representativeEmployeeId || null,
         }),
       });
 
@@ -185,6 +198,12 @@ export default function TBMNewForm({ employees, worksites, templates }: Props) {
               ? "TBM 저장 오류. 테이블이 정상적으로 생성되었는지 확인해 주세요."
               : data?.error === "attendees_insert_failed"
               ? "참석자 저장 오류. tbm_attendees 테이블을 확인해 주세요."
+              : data?.error === "approvals_insert_failed"
+              ? "전자확인 저장 오류. tbm_approvals 테이블(마이그레이션)을 확인해 주세요."
+              : data?.error === "representative_required"
+              ? "소장/대표 최종 확인을 사용하려면 담당 직원을 선택해야 합니다."
+              : data?.error === "invalid_approver"
+              ? "선택한 전자확인 담당자가 올바르지 않습니다. 직원 목록을 확인해 주세요."
               : `오류: ${data?.error ?? res.status}`;
         setError(msg);
         setLoading(false);
@@ -357,6 +376,109 @@ export default function TBMNewForm({ employees, worksites, templates }: Props) {
               value={siteManager}
               onChange={(e) => setSiteManager(e.target.value)}
             />
+          </div>
+        </section>
+
+        {/* ── STEP 2.5: 전자확인(승인) 설정 ── */}
+        <section className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-gray-900 mb-1 pb-3 border-b border-gray-100">
+            ✅ 전자확인(승인) 설정 <span className="text-xs font-normal text-gray-400">(선택)</span>
+          </h2>
+          <p className="text-xs text-gray-500 mb-4 mt-3 leading-relaxed">
+            안전전담자가 본인 휴대폰으로 본인확인 후 전자서명하면 종이 수기서명 없이 완료됩니다.
+            <br />
+            지정하지 않으면 기존 방식(관리자 검토)으로 진행됩니다.
+          </p>
+
+          <div className="space-y-4">
+            {/* 작성자 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                작성자 {authorIsSafetyManager && "(= 안전전담자)"}
+              </label>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={authorEmployeeId}
+                onChange={(e) => setAuthorEmployeeId(e.target.value)}
+              >
+                <option value="">— 선택 안 함 (전자확인 미사용) —</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name}
+                    {emp.department ? ` (${emp.department})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 작성자 = 안전전담자 체크박스 */}
+            <label className="flex items-center gap-3 cursor-pointer bg-gray-50 rounded-lg px-3 py-3">
+              <input
+                type="checkbox"
+                checked={authorIsSafetyManager}
+                onChange={(e) => setAuthorIsSafetyManager(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                작성자와 안전전담자가 동일함
+              </span>
+            </label>
+
+            {/* 안전전담자 별도 선택 */}
+            {!authorIsSafetyManager && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  안전전담자 (전자확인 담당)
+                </label>
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={safetyManagerEmployeeId}
+                  onChange={(e) => setSafetyManagerEmployeeId(e.target.value)}
+                >
+                  <option value="">— 안전전담자 선택 —</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                      {emp.department ? ` (${emp.department})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* 소장/대표 확인 필요 */}
+            <label className="flex items-center gap-3 cursor-pointer bg-gray-50 rounded-lg px-3 py-3">
+              <input
+                type="checkbox"
+                checked={requireRep}
+                onChange={(e) => setRequireRep(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                소장/대표 최종 확인 필요
+              </span>
+            </label>
+
+            {requireRep && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  소장/대표 (전자확인 담당)
+                </label>
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={representativeEmployeeId}
+                  onChange={(e) => setRepresentativeEmployeeId(e.target.value)}
+                >
+                  <option value="">— 소장/대표 선택 —</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                      {emp.department ? ` (${emp.department})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </section>
 

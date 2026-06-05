@@ -6,7 +6,9 @@ import Link from "next/link";
 import TBMStatusBadge from "@/components/tbm/TBMStatusBadge";
 import TBMApproveBox from "@/components/tbm/TBMApproveBox";
 import TBMSignLinkBox from "@/components/tbm/TBMSignLinkBox";
-import type { TbmRecord, TbmAttendee } from "@/types";
+import TBMApprovalLinkBox from "@/components/tbm/TBMApprovalLinkBox";
+import TBMReopenButton from "@/components/tbm/TBMReopenButton";
+import type { TbmRecord, TbmAttendee, TbmApproval } from "@/types";
 
 export default async function TbmDetailPage({
   params,
@@ -39,20 +41,24 @@ export default async function TbmDetailPage({
 
   if (!record) notFound();
 
-  const { data: attendees } = await supabase
-    .from("tbm_attendees")
-    .select("*")
-    .eq("tbm_record_id", id)
-    .order("created_at");
+  const [{ data: attendees }, { data: approvalsData }] = await Promise.all([
+    supabase.from("tbm_attendees").select("*").eq("tbm_record_id", id).order("created_at"),
+    supabase.from("tbm_approvals").select("*").eq("tbm_record_id", id).order("created_at"),
+  ]);
 
   const tbm = record as TbmRecord;
   const att = (attendees ?? []) as TbmAttendee[];
+  const approvals = (approvalsData ?? []) as TbmApproval[];
+  const hasApprovals = approvals.length > 0;
   const signedCount = att.filter((a) => a.attendance_status === "서명완료").length;
   const pendingCount = att.filter((a) => a.attendance_status === "대기").length;
 
   const isLocked = tbm.status === "완료";
   const isRejected = tbm.status === "반려";
   const canApprove = tbm.status === "검토중";
+
+  const roleLabelOf = (role: string) =>
+    role === "안전전담자" ? "TBM 실시·확인자 (안전전담자)" : "소장 / 대표";
 
   // signUrl은 TBMSignLinkBox 클라이언트에서 window.location.origin 기준으로 생성
   // (Preview URL이 바뀌어도 항상 현재 도메인에 맞는 링크 생성됨)
@@ -94,11 +100,14 @@ export default async function TbmDetailPage({
 
       {/* 잠금 안내 */}
       {isLocked && (
-        <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-2">
-          <span className="text-green-600">✅</span>
-          <p className="text-sm text-green-700 font-medium">
-            완료된 TBM입니다. 수정할 수 없습니다.
-          </p>
+        <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-green-600">✅</span>
+            <p className="text-sm text-green-700 font-medium">
+              완료된 TBM입니다. 수정하려면 승인을 무효화해야 합니다.
+            </p>
+          </div>
+          {hasApprovals && <TBMReopenButton tbmId={id} />}
         </div>
       )}
 
@@ -244,8 +253,73 @@ export default async function TbmDetailPage({
         )}
       </section>
 
-      {/* 승인/반려 박스 */}
-      {(canApprove || isRejected) && (
+      {/* 관리자 전자확인 (역할별) — 전자확인이 구성된 TBM */}
+      {hasApprovals && (
+        <section className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm mb-4">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">
+            ✅ 관리자 전자확인
+          </h2>
+          <p className="text-xs text-gray-400 mb-4">
+            각 역할 담당자가 본인 휴대폰으로 본인확인 후 전자서명합니다.
+            관리자가 대신 서명하지 않습니다.
+          </p>
+          <div className="space-y-4">
+            {approvals.map((ap) => {
+              const statusStyle =
+                ap.approval_status === "승인"
+                  ? "bg-green-100 text-green-700"
+                  : ap.approval_status === "반려"
+                    ? "bg-red-100 text-red-700"
+                    : "bg-amber-100 text-amber-700";
+              return (
+                <div key={ap.id} className="border border-gray-100 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {roleLabelOf(ap.approver_role)}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {ap.approver_name ?? "-"}
+                        {ap.approved_at &&
+                          ` · ${new Date(ap.approved_at).toLocaleString("ko-KR")}`}
+                      </p>
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusStyle}`}>
+                      {ap.approval_status}
+                    </span>
+                  </div>
+
+                  {ap.approval_status === "승인" && ap.signature_data && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={ap.signature_data}
+                      alt="전자서명"
+                      className="h-12 border border-gray-200 rounded bg-white px-1 mb-2"
+                    />
+                  )}
+
+                  {ap.approval_status === "반려" && ap.rejection_reason && (
+                    <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-2">
+                      반려 사유: {ap.rejection_reason}
+                    </p>
+                  )}
+
+                  {/* 미완료(대기/반려)이고 잠금 전이면 승인 링크 노출 */}
+                  {ap.approval_status !== "승인" && !isLocked && (
+                    <TBMApprovalLinkBox
+                      approvalToken={ap.approval_token}
+                      roleLabel={roleLabelOf(ap.approver_role)}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* 레거시 승인/반려 박스 — 전자확인 미구성 TBM에서만 */}
+      {!hasApprovals && (canApprove || isRejected) && (
         <TBMApproveBox tbmId={id} canApprove={canApprove} />
       )}
 
