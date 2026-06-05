@@ -547,11 +547,16 @@ export default async function WorkPermitPrintPage({
                                   ? new Date(a.approved_at).toLocaleString("ko-KR")
                                   : a.approval_status === "반려"
                                   ? `반려 (${a.approved_at ? new Date(a.approved_at).toLocaleString("ko-KR") : "-"})`
-                                  : "대기"}
+                                  : "승인 대기"}
                               </div>
+                              {a.approval_status === "반려" && a.rejection_reason && (
+                                <div style={{ color: "#b91c1c", fontSize: "10px", marginTop: "2px" }}>
+                                  사유: {a.rejection_reason}
+                                </div>
+                              )}
                             </>
                           ) : (
-                            <span style={{ color: "#bbb" }}>-</span>
+                            <span style={{ color: "#bbb" }}>승인 대기</span>
                           )}
                         </td>
                       );

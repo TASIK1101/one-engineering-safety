@@ -185,6 +185,10 @@ export type WorkPermit = {
   created_by: string | null;
   approved_by: string | null;
   approved_at: string | null;
+  author_employee_id: string | null;
+  safety_manager_employee_id: string | null;
+  representative_employee_id: string | null;
+  locked_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -219,9 +223,14 @@ export type WorkPermitApproval = {
   permit_id: string;
   approver_role: string;
   approver_name: string;
+  approver_employee_id: string | null;
   approval_status: '대기' | '승인' | '반려';
   signature_data: string | null;
+  rejection_reason: string | null;
   approved_at: string | null;
+  approval_token: string | null;
+  signed_ip: string | null;
+  signed_user_agent: string | null;
   created_at: string;
 };
 

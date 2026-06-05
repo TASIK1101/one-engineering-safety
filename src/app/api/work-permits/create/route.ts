@@ -16,6 +16,8 @@ interface ChecklistItemInput {
   apply_status: "신청" | "해당없음";
 }
 
+const APPROVAL_ROLES = ["작성자", "안전전담자", "소장대표"] as const;
+
 export async function POST(req: NextRequest) {
   try {
     const supabaseServer = await createClient();
@@ -41,6 +43,9 @@ export async function POST(req: NextRequest) {
       watcher_name,
       items,
       workers,
+      author_employee_id,
+      safety_manager_employee_id,
+      representative_employee_id,
     } = body as {
       grade: "A" | "B";
       permit_type: string;
@@ -57,6 +62,9 @@ export async function POST(req: NextRequest) {
       watcher_name?: string;
       items: ChecklistItemInput[];
       workers: WorkerInput[];
+      author_employee_id?: string | null;
+      safety_manager_employee_id?: string | null;
+      representative_employee_id?: string | null;
     };
 
     if (!grade || !permit_type) {
@@ -65,6 +73,34 @@ export async function POST(req: NextRequest) {
 
     const title = `${grade}급 작업허가서 — ${permit_type}`;
     const admin = createAdminClient();
+
+    // 역할별 담당자 검증 (본인 소유 직원만 허용)
+    const roleEmployeeMap: Record<string, { id: string; name: string }> = {};
+    const neededIds = [
+      { role: "작성자", id: author_employee_id },
+      { role: "안전전담자", id: safety_manager_employee_id },
+      { role: "소장대표", id: representative_employee_id },
+    ].filter((r): r is { role: string; id: string } => !!r.id);
+
+    if (neededIds.length > 0) {
+      const { data: emps } = await admin
+        .from("employees")
+        .select("id, name")
+        .eq("admin_id", user.id)
+        .in(
+          "id",
+          neededIds.map((r) => r.id)
+        );
+
+      const empMap = new Map((emps ?? []).map((e) => [e.id, e.name]));
+
+      for (const { role, id } of neededIds) {
+        if (!empMap.has(id)) {
+          return NextResponse.json({ error: "invalid_approver" }, { status: 400 });
+        }
+        roleEmployeeMap[role] = { id, name: empMap.get(id)! };
+      }
+    }
 
     // 1. 작업허가서 생성
     const { data: permit, error: pErr } = await admin
@@ -87,6 +123,9 @@ export async function POST(req: NextRequest) {
         watcher_name: watcher_name || null,
         status: "서명중",
         created_by: user.id,
+        author_employee_id: author_employee_id || null,
+        safety_manager_employee_id: safety_manager_employee_id || null,
+        representative_employee_id: representative_employee_id || null,
       })
       .select("id")
       .single();
@@ -133,12 +172,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. 승인 단계 3개 자동 생성 (작성자, 안전전담자, 소장대표)
-    await admin.from("work_permit_approvals").insert([
-      { permit_id: permit.id, approver_role: "작성자",    approver_name: "", approval_status: "대기" },
-      { permit_id: permit.id, approver_role: "안전전담자", approver_name: "", approval_status: "대기" },
-      { permit_id: permit.id, approver_role: "소장대표",  approver_name: "", approval_status: "대기" },
-    ]);
+    // 4. 역할별 승인 row 생성 (approval_token은 DB default로 자동 생성)
+    const approvalRows = APPROVAL_ROLES.map((role) => {
+      const emp = roleEmployeeMap[role];
+      return {
+        permit_id: permit.id,
+        approver_role: role,
+        approver_name: emp?.name ?? "",
+        approver_employee_id: emp?.id ?? null,
+        approval_status: "대기",
+      };
+    });
+
+    const { error: aErr } = await admin.from("work_permit_approvals").insert(approvalRows);
+    if (aErr) {
+      console.error("[work-permits/create] approvals insert:", aErr);
+      await admin.from("work_permits").delete().eq("id", permit.id);
+      return NextResponse.json({ error: "approvals_insert_failed" }, { status: 500 });
+    }
 
     return NextResponse.json({ id: permit.id });
   } catch (err) {

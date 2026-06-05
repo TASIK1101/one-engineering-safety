@@ -52,6 +52,11 @@ export default function WorkPermitNewForm({ employees, templates }: Props) {
   // ── 체크리스트 ───────────────────────────────────────────────
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
 
+  // ── 전자승인 담당자 ──────────────────────────────────────────
+  const [authorEmployeeId, setAuthorEmployeeId] = useState("");
+  const [safetyManagerEmployeeId, setSafetyManagerEmployeeId] = useState("");
+  const [representativeEmployeeId, setRepresentativeEmployeeId] = useState("");
+
   // ── 작업 인원 ────────────────────────────────────────────────
   const [selectedWorkers, setSelectedWorkers] = useState<WorkerEntry[]>([]);
   const [manualName, setManualName] = useState("");
@@ -169,6 +174,9 @@ export default function WorkPermitNewForm({ employees, templates }: Props) {
         watcher_name: showConfinedSpace ? watcherName : undefined,
         items: checklistItems,
         workers: selectedWorkers,
+        author_employee_id: authorEmployeeId || null,
+        safety_manager_employee_id: safetyManagerEmployeeId || null,
+        representative_employee_id: representativeEmployeeId || null,
       }),
     });
 
@@ -425,10 +433,62 @@ export default function WorkPermitNewForm({ employees, templates }: Props) {
             </section>
           )}
 
+          {/* 전자승인 담당자 지정 */}
+          <section className="rounded-xl bg-white border border-indigo-200 p-6 shadow-sm">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              STEP 5 · 전자승인 담당자 지정
+            </h2>
+            <p className="text-xs text-gray-400 mb-5">
+              각 역할 담당자를 지정하면 고유 서명 링크가 생성됩니다. 미지정 시 링크 발급 없이 진행됩니다.
+            </p>
+            <div className="space-y-4">
+              {(
+                [
+                  { label: "작성자", value: authorEmployeeId, setter: setAuthorEmployeeId },
+                  { label: "안전전담자", value: safetyManagerEmployeeId, setter: setSafetyManagerEmployeeId },
+                  { label: "소장/대표", value: representativeEmployeeId, setter: setRepresentativeEmployeeId },
+                ] as const
+              ).map(({ label, value, setter }) => {
+                const selectedEmp = employees.find((e) => e.id === value);
+                return (
+                  <div key={label}>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                      {label}
+                    </label>
+                    {employees.length === 0 ? (
+                      <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        등록된 직원이 없습니다. 직원 관리에서 먼저 등록해 주세요.
+                      </p>
+                    ) : (
+                      <select
+                        value={value}
+                        onChange={(e) => setter(e.target.value)}
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                      >
+                        <option value="">— 미지정 —</option>
+                        {employees.map((emp) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.name}
+                            {emp.department ? ` (${emp.department})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {selectedEmp && !selectedEmp.phone && (
+                      <p className="text-[11px] text-amber-600 mt-1">
+                        이 직원의 전화번호가 등록되지 않았습니다. 직원 정보에서 전화번호를 추가해야 링크 인증이 가능합니다.
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
           {/* 작업 인원 선택 */}
           <section className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
-              STEP 5 · 작업 인원
+              STEP 6 · 작업 인원
             </h2>
 
             {/* 등록된 직원 선택 */}
