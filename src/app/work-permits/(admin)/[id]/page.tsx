@@ -10,6 +10,7 @@ import type {
   WorkPermitGasMeasurement,
   ConfinedSpaceEntryLog,
   RelatedCompanyAgreement,
+  Employee,
 } from "@/types";
 import { isConfinedSpace, isRailWork } from "@/lib/work-permit-types";
 import WorkPermitApproveBox from "@/components/work-permit/WorkPermitApproveBox";
@@ -65,6 +66,7 @@ export default async function WorkPermitDetailPage({
     { data: gasMeasurements },
     { data: entryLogs },
     { data: agreements },
+    { data: employees },
   ] = await Promise.all([
     supabase
       .from("work_permit_items")
@@ -100,6 +102,11 @@ export default async function WorkPermitDetailPage({
           .eq("permit_id", id)
           .order("created_at")
       : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from("employees")
+      .select("*")
+      .eq("admin_id", user!.id)
+      .order("name"),
   ]);
 
   if (itemsError) {
@@ -113,9 +120,12 @@ export default async function WorkPermitDetailPage({
   const gasList = (gasMeasurements ?? []) as WorkPermitGasMeasurement[];
   const logList = (entryLogs ?? []) as ConfinedSpaceEntryLog[];
   const agreementList = (agreements ?? []) as RelatedCompanyAgreement[];
+  const employeeList = (employees ?? []) as Employee[];
 
   const isLocked = !!p.locked_at || p.status === "승인완료" || p.status === "작업중지";
   const isRejected = p.status === "반려";
+  // 완료/반려/작업중지/잠금 문서는 읽기 전용 → 담당자 변경 불가
+  const canAssignApprover = !isLocked && !isRejected;
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -146,7 +156,12 @@ export default async function WorkPermitDetailPage({
       />
 
       {/* 관리자 전자승인 현황 */}
-      <WorkPermitApprovalLinkBox approvals={approvalList} />
+      <WorkPermitApprovalLinkBox
+        permitId={id}
+        approvals={approvalList}
+        employees={employeeList}
+        canAssign={canAssignApprover}
+      />
 
       {/* 승인 무효화 버튼 (잠긴 상태에서만) */}
       {p.locked_at && (
