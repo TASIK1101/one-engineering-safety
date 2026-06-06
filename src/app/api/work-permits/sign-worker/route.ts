@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recomputePermitStatus } from "@/lib/work-permit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
     // 중복 서명 방지
     const { data: worker } = await admin
       .from("work_permit_workers")
-      .select("id, signed_at")
+      .select("id, permit_id, signed_at")
       .eq("id", workerId)
       .single();
 
@@ -40,6 +41,9 @@ export async function POST(req: NextRequest) {
       console.error("[work-permits/sign-worker]", error);
       return NextResponse.json({ error: "server_error" }, { status: 500 });
     }
+
+    // 전체 서명 완료 시 자동으로 검토중 전환
+    await recomputePermitStatus(admin, worker.permit_id);
 
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -21,7 +21,8 @@ import WorkPermitStatusAlert from "@/components/work-permit/WorkPermitStatusAler
 import WorkPermitBasicInfo from "@/components/work-permit/WorkPermitBasicInfo";
 import WorkPermitChecklist from "@/components/work-permit/WorkPermitChecklist";
 import WorkPermitWorkerSignBox from "@/components/work-permit/WorkPermitWorkerSignBox";
-import WorkPermitApprovalSignBox from "@/components/work-permit/WorkPermitApprovalSignBox";
+import WorkPermitApprovalLinkBox from "@/components/work-permit/WorkPermitApprovalLinkBox";
+import WorkPermitReopenButton from "@/components/work-permit/WorkPermitReopenButton";
 
 export default async function WorkPermitDetailPage({
   params,
@@ -79,7 +80,7 @@ export default async function WorkPermitDetailPage({
       .from("work_permit_approvals")
       .select("*")
       .eq("permit_id", id)
-      .order("created_at", { ascending: false }),
+      .order("created_at"),
     supabase
       .from("work_permit_gas_measurements")
       .select("*")
@@ -113,7 +114,7 @@ export default async function WorkPermitDetailPage({
   const logList = (entryLogs ?? []) as ConfinedSpaceEntryLog[];
   const agreementList = (agreements ?? []) as RelatedCompanyAgreement[];
 
-  const isLocked = p.status === "승인완료" || p.status === "작업중지";
+  const isLocked = !!p.locked_at || p.status === "승인완료" || p.status === "작업중지";
   const isRejected = p.status === "반려";
 
   return (
@@ -143,11 +144,17 @@ export default async function WorkPermitDetailPage({
         isRejected={isRejected}
         permitToken={p.permit_token}
       />
-      <WorkPermitApprovalSignBox
-        permitId={id}
-        permitStatus={p.status}
-        approvals={approvalList}
-      />
+
+      {/* 관리자 전자승인 현황 */}
+      <WorkPermitApprovalLinkBox approvals={approvalList} />
+
+      {/* 승인 무효화 버튼 (잠긴 상태에서만) */}
+      {p.locked_at && (
+        <div className="mb-4 flex justify-end">
+          <WorkPermitReopenButton permitId={id} />
+        </div>
+      )}
+
       <WorkPermitApproveBox permitId={id} status={p.status} />
     </div>
   );
