@@ -2,8 +2,11 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import PrintButton from "@/components/ui/PrintButton";
+import PrintStyles from "@/components/print/PrintStyles";
+import PrintDocumentHeader from "@/components/print/PrintDocumentHeader";
+import PrintDocumentFooter from "@/components/print/PrintDocumentFooter";
+import PrintButtonBar from "@/components/print/PrintButtonBar";
+import { thStyle, tdStyle, sectionTitleStyle } from "@/components/print/printStyleConstants";
 import type {
   WorkPermit,
   WorkPermitItem,
@@ -22,9 +25,7 @@ export default async function WorkPermitPrintPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
   const { data: permit } = await supabase
     .from("work_permits")
@@ -66,76 +67,36 @@ export default async function WorkPermitPrintPage({
   const logList = (entryLogs ?? []) as ConfinedSpaceEntryLog[];
   const agreementList = (agreements ?? []) as RelatedCompanyAgreement[];
 
-  // 카테고리 그룹핑
   const grouped = checklistItems.reduce<Record<string, WorkPermitItem[]>>((acc, item) => {
     if (!acc[item.category]) acc[item.category] = [];
     acc[item.category].push(item);
     return acc;
   }, {});
 
+  const APPROVAL_ROLES = ["작성자", "안전전담자", "소장대표"] as const;
   const printDate = new Date().toLocaleDateString("ko-KR", {
     year: "numeric", month: "long", day: "numeric",
   });
 
   return (
     <>
-      <style>{`
-        @page { size: A4; margin: 15mm; }
-        @media print {
-          .no-print { display: none !important; }
-          body {
-            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Nanum Gothic', Arial, sans-serif;
-            color: #000 !important;
-            background: #fff !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-          table { page-break-inside: auto; }
-          tr { page-break-inside: avoid; }
-          thead { display: table-header-group; }
-          section { page-break-inside: avoid; }
-        }
-        body {
-          font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Nanum Gothic', Arial, sans-serif;
-        }
-      `}</style>
+      <PrintStyles />
+      <PrintButtonBar
+        backHref={`/work-permits/${id}`}
+        backLabel="← 돌아가기"
+        pageTitle="작업허가서 출력"
+        hasAppendix={workerList.length > 0}
+      />
 
-      {/* 조작 바 */}
-      <div className="no-print sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href={`/work-permits/${id}`} className="text-sm text-gray-500 hover:text-gray-800">
-            ← 돌아가기
-          </Link>
-          <span className="text-sm font-semibold text-gray-800">작업허가서 인쇄 미리보기</span>
-        </div>
-        <PrintButton />
-      </div>
+      {/* ── 본문 섹션 (A4 세로) ── */}
+      <div className="print-body-section mx-auto bg-white px-10 py-8 print:px-0 print:py-0" style={{ maxWidth: "210mm" }}>
+        <PrintDocumentHeader
+          title={`${p.grade}급 작업허가서`}
+          subtitle={p.permit_type}
+          docNumber="Work Permit"
+        />
 
-      <div className="mx-auto bg-white px-10 py-8 print:px-0 print:py-0" style={{ maxWidth: "210mm" }}>
-
-        {/* ── 문서 헤더 ── */}
-        <div className="text-center pb-5 mb-6" style={{ borderBottom: "2.5px solid #111" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo/one-engineering-logo.png"
-            alt="주식회사 원엔지니어링"
-            style={{ height: "48px", objectFit: "contain", margin: "0 auto 6px" }}
-          />
-          <p style={{ fontSize: "12px", color: "#555", marginBottom: "4px", letterSpacing: "1px" }}>
-            주식회사 원엔지니어링
-          </p>
-          <h1 style={{ fontSize: "22px", fontWeight: "bold", margin: "0 0 4px" }}>
-            {p.grade}급 작업허가서
-          </h1>
-          <p style={{ fontSize: "13px", color: "#444", margin: "0 0 4px", fontWeight: "600" }}>
-            {p.permit_type}
-          </p>
-          <p style={{ fontSize: "11px", color: "#777", margin: 0 }}>
-            Work Permit — Grade {p.grade}
-          </p>
-        </div>
-
-        {/* ── 기본 정보 ── */}
+        {/* 기본 정보 */}
         <section style={{ marginBottom: "20px" }}>
           <h2 style={sectionTitleStyle}>기본 정보</h2>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
@@ -197,7 +158,7 @@ export default async function WorkPermitPrintPage({
           </table>
         </section>
 
-        {/* ── 체크리스트 ── */}
+        {/* 체크리스트 */}
         {checklistItems.length > 0 && (
           <section style={{ marginBottom: "20px" }}>
             <h2 style={sectionTitleStyle}>작업 전 체크리스트</h2>
@@ -215,15 +176,8 @@ export default async function WorkPermitPrintPage({
                   catItems.map((item, idx) => (
                     <tr key={item.id}>
                       {idx === 0 && (
-                        <td
-                          style={{
-                            ...tdStyle,
-                            fontWeight: "600",
-                            background: "#f9fafb",
-                            verticalAlign: "middle",
-                          }}
-                          rowSpan={catItems.length}
-                        >
+                        <td style={{ ...tdStyle, fontWeight: "600", background: "#f9fafb", verticalAlign: "middle" }}
+                          rowSpan={catItems.length}>
                           {category}
                         </td>
                       )}
@@ -234,8 +188,10 @@ export default async function WorkPermitPrintPage({
                       }}>
                         {item.item_text}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: "center", fontWeight: "600",
-                        color: item.apply_status === "신청" ? "#1d4ed8" : "#9ca3af" }}>
+                      <td style={{
+                        ...tdStyle, textAlign: "center", fontWeight: "600",
+                        color: item.apply_status === "신청" ? "#1d4ed8" : "#9ca3af",
+                      }}>
                         {item.apply_status}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "center" }}>
@@ -249,7 +205,7 @@ export default async function WorkPermitPrintPage({
           </section>
         )}
 
-        {/* ── 밀폐구역: 가스 측정 기록 ── */}
+        {/* 밀폐구역: 가스 측정 */}
         {confined && (
           <section style={{ marginBottom: "20px" }}>
             <h2 style={{ ...sectionTitleStyle, borderLeftColor: "#0891b2" }}>가스 농도 측정 기록</h2>
@@ -260,7 +216,7 @@ export default async function WorkPermitPrintPage({
                   <th style={{ ...thStyle, textAlign: "center" }}>산소 (%)</th>
                   <th style={{ ...thStyle, textAlign: "center" }}>가연성가스 (%LEL)</th>
                   <th style={{ ...thStyle, textAlign: "center" }}>CO (ppm)</th>
-                  <th style={{ ...thStyle }}>측정자</th>
+                  <th style={thStyle}>측정자</th>
                 </tr>
               </thead>
               <tbody>
@@ -286,14 +242,13 @@ export default async function WorkPermitPrintPage({
                     </td>
                   </tr>
                 )}
-                {/* 빈 행 (현장 기록용) */}
                 {[...Array(Math.max(0, 3 - gasList.length))].map((_, i) => (
                   <tr key={`empty-${i}`}>
-                    <td style={{ ...tdStyle, height: "28px" }}></td>
-                    <td style={tdStyle}></td>
-                    <td style={tdStyle}></td>
-                    <td style={tdStyle}></td>
-                    <td style={tdStyle}></td>
+                    <td style={{ ...tdStyle, height: "28px" }} />
+                    <td style={tdStyle} />
+                    <td style={tdStyle} />
+                    <td style={tdStyle} />
+                    <td style={tdStyle} />
                   </tr>
                 ))}
               </tbody>
@@ -304,12 +259,10 @@ export default async function WorkPermitPrintPage({
           </section>
         )}
 
-        {/* ── 밀폐구역: 출입 관리대장 ── */}
+        {/* 밀폐구역: 출입 관리대장 */}
         {confined && (
           <section style={{ marginBottom: "20px" }}>
-            <h2 style={{ ...sectionTitleStyle, borderLeftColor: "#f97316" }}>
-              밀폐구역 출입 관리대장
-            </h2>
+            <h2 style={{ ...sectionTitleStyle, borderLeftColor: "#f97316" }}>밀폐구역 출입 관리대장</h2>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
               <thead>
                 <tr style={{ background: "#fff7ed" }}>
@@ -317,7 +270,7 @@ export default async function WorkPermitPrintPage({
                   <th style={{ ...thStyle, width: "70px" }}>작업자명</th>
                   <th style={{ ...thStyle, width: "120px", textAlign: "center" }}>입실 시간</th>
                   <th style={{ ...thStyle, width: "120px", textAlign: "center" }}>퇴실 시간</th>
-                  <th style={{ ...thStyle }}>비고</th>
+                  <th style={thStyle}>비고</th>
                 </tr>
               </thead>
               <tbody>
@@ -361,12 +314,10 @@ export default async function WorkPermitPrintPage({
           </section>
         )}
 
-        {/* ── 레일 위 작업: 관련 협력사 합의 ── */}
+        {/* 레일 위 작업: 관련 협력사 합의 */}
         {railWork && (
           <section style={{ marginBottom: "20px" }}>
-            <h2 style={{ ...sectionTitleStyle, borderLeftColor: "#7c3aed" }}>
-              관련 협력사 합의
-            </h2>
+            <h2 style={{ ...sectionTitleStyle, borderLeftColor: "#7c3aed" }}>관련 협력사 합의</h2>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
               <thead>
                 <tr style={{ background: "#faf5ff" }}>
@@ -374,7 +325,7 @@ export default async function WorkPermitPrintPage({
                   <th style={{ ...thStyle, width: "120px" }}>협력사명</th>
                   <th style={{ ...thStyle, width: "80px" }}>담당자명</th>
                   <th style={{ ...thStyle, width: "100px", textAlign: "center" }}>서명</th>
-                  <th style={{ ...thStyle }}>서명일시</th>
+                  <th style={thStyle}>서명일시</th>
                 </tr>
               </thead>
               <tbody>
@@ -397,9 +348,7 @@ export default async function WorkPermitPrintPage({
                         )}
                       </td>
                       <td style={{ ...tdStyle, fontSize: "10px" }}>
-                        {agr.signed_at
-                          ? new Date(agr.signed_at).toLocaleString("ko-KR")
-                          : "-"}
+                        {agr.signed_at ? new Date(agr.signed_at).toLocaleString("ko-KR") : "-"}
                       </td>
                     </tr>
                   ))
@@ -419,153 +368,67 @@ export default async function WorkPermitPrintPage({
           </section>
         )}
 
-        {/* ── 작업 인원 서명부 ── */}
+        {/* 승인 서명란 */}
         <section style={{ marginBottom: "20px" }}>
-          <h2 style={sectionTitleStyle}>작업 인원 서명부</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
+          <h2 style={sectionTitleStyle}>승인 서명란</h2>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
             <thead>
               <tr style={{ background: "#f3f4f6" }}>
-                <th style={{ ...thStyle, width: "28px" }}>No</th>
-                <th style={{ ...thStyle, width: "70px" }}>이름</th>
-                <th style={{ ...thStyle, width: "60px" }}>서명 상태</th>
-                <th style={{ ...thStyle, width: "120px" }}>서명 일시</th>
-                <th style={{ ...thStyle }}>전자서명</th>
+                {APPROVAL_ROLES.map((role) => (
+                  <th key={role} style={{ ...thStyle, width: "33.33%", textAlign: "center" }}>{role}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {workerList.length > 0 ? (
-                workerList.map((w, idx) => (
-                  <tr key={w.id}>
-                    <td style={{ ...tdStyle, textAlign: "center" }}>{idx + 1}</td>
-                    <td style={{ ...tdStyle, fontWeight: "500" }}>{w.worker_name}</td>
-                    <td style={{
-                      ...tdStyle, textAlign: "center", fontWeight: "bold",
-                      color: w.signed_at ? "#166534" : "#92400e", fontSize: "10px",
-                    }}>
-                      {w.signed_at ? "서명완료" : "대기"}
-                    </td>
-                    <td style={{ ...tdStyle, fontSize: "10px" }}>
-                      {w.signed_at
-                        ? new Date(w.signed_at).toLocaleString("ko-KR")
-                        : "-"}
-                    </td>
-                    <td style={{ ...tdStyle, height: "54px", textAlign: "center", padding: "3px" }}>
-                      {w.signature_data ? (
+              <tr>
+                {APPROVAL_ROLES.map((role) => {
+                  const a = approvalList.find((x) => x.approver_role === role);
+                  return (
+                    <td key={role} style={{ ...tdStyle, height: "80px", textAlign: "center", verticalAlign: "middle", padding: "6px" }}>
+                      {a?.signature_data ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={w.signature_data}
-                          alt={`${w.worker_name} 서명`}
-                          style={{ maxHeight: "48px", maxWidth: "120px", margin: "0 auto", display: "block" }}
+                          src={a.signature_data}
+                          alt={`${a.approver_name} 서명`}
+                          style={{ maxHeight: "68px", maxWidth: "140px", margin: "0 auto", display: "block" }}
                         />
                       ) : (
-                        <span style={{ color: "#aaa" }}>-</span>
+                        <span style={{ color: "#ccc", fontSize: "11px" }}>미서명</span>
                       )}
                     </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} style={{ ...tdStyle, textAlign: "center", color: "#aaa", height: "40px" }}>
-                    등록된 작업자 없음
-                  </td>
-                </tr>
-              )}
+                  );
+                })}
+              </tr>
+              <tr>
+                {APPROVAL_ROLES.map((role) => {
+                  const a = approvalList.find((x) => x.approver_role === role);
+                  return (
+                    <td key={role} style={{ ...tdStyle, textAlign: "center", fontSize: "11px" }}>
+                      {a?.approver_name ? (
+                        <>
+                          <div style={{ fontWeight: "600", marginBottom: "2px" }}>{a.approver_name}</div>
+                          <div style={{ color: "#666", fontSize: "10px" }}>
+                            {a.approval_status === "승인" && a.approved_at
+                              ? new Date(a.approved_at).toLocaleString("ko-KR")
+                              : a.approval_status === "반려"
+                              ? `반려 (${a.approved_at ? new Date(a.approved_at).toLocaleString("ko-KR") : "-"})`
+                              : "승인 대기"}
+                          </div>
+                          {a.approval_status === "반려" && a.rejection_reason && (
+                            <div style={{ color: "#b91c1c", fontSize: "10px", marginTop: "2px" }}>
+                              사유: {a.rejection_reason}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span style={{ color: "#bbb" }}>승인 대기</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
             </tbody>
           </table>
-        </section>
-
-        {/* ── 승인 서명란 ── */}
-        <section style={{ marginBottom: "20px" }}>
-          <h2 style={sectionTitleStyle}>승인 서명란</h2>
-          {(() => {
-            const ROLES = ["작성자", "안전전담자", "소장대표"] as const;
-            return (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-                <thead>
-                  <tr style={{ background: "#f3f4f6" }}>
-                    {ROLES.map((role) => (
-                      <th
-                        key={role}
-                        style={{ ...thStyle, width: "33.33%", textAlign: "center", fontSize: "12px" }}
-                      >
-                        {role}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* 서명 이미지 행 */}
-                  <tr>
-                    {ROLES.map((role) => {
-                      const a = approvalList.find((x) => x.approver_role === role);
-                      return (
-                        <td
-                          key={role}
-                          style={{
-                            ...tdStyle,
-                            height: "80px",
-                            textAlign: "center",
-                            verticalAlign: "middle",
-                            padding: "6px",
-                          }}
-                        >
-                          {a?.signature_data ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={a.signature_data}
-                              alt={`${a.approver_name} 서명`}
-                              style={{
-                                maxHeight: "68px",
-                                maxWidth: "140px",
-                                margin: "0 auto",
-                                display: "block",
-                              }}
-                            />
-                          ) : (
-                            <span style={{ color: "#ccc", fontSize: "11px" }}>미서명</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                  {/* 이름 행 */}
-                  <tr>
-                    {ROLES.map((role) => {
-                      const a = approvalList.find((x) => x.approver_role === role);
-                      return (
-                        <td
-                          key={role}
-                          style={{ ...tdStyle, textAlign: "center", fontSize: "11px" }}
-                        >
-                          {a?.approver_name ? (
-                            <>
-                              <div style={{ fontWeight: "600", marginBottom: "2px" }}>
-                                {a.approver_name}
-                              </div>
-                              <div style={{ color: "#666", fontSize: "10px" }}>
-                                {a.approval_status === "승인" && a.approved_at
-                                  ? new Date(a.approved_at).toLocaleString("ko-KR")
-                                  : a.approval_status === "반려"
-                                  ? `반려 (${a.approved_at ? new Date(a.approved_at).toLocaleString("ko-KR") : "-"})`
-                                  : "승인 대기"}
-                              </div>
-                              {a.approval_status === "반려" && a.rejection_reason && (
-                                <div style={{ color: "#b91c1c", fontSize: "10px", marginTop: "2px" }}>
-                                  사유: {a.rejection_reason}
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <span style={{ color: "#bbb" }}>승인 대기</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                </tbody>
-              </table>
-            );
-          })()}
           {p.rejection_reason && (
             <div style={{ marginTop: "8px", padding: "8px 12px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: "6px", fontSize: "11px", color: "#b91c1c" }}>
               <strong>반려 사유:</strong> {p.rejection_reason}
@@ -573,7 +436,7 @@ export default async function WorkPermitPrintPage({
           )}
         </section>
 
-        {/* ── 비고 ── */}
+        {/* 비고 */}
         <section style={{ marginBottom: "16px" }}>
           <h2 style={sectionTitleStyle}>비고</h2>
           <div style={{
@@ -586,42 +449,71 @@ export default async function WorkPermitPrintPage({
           </div>
         </section>
 
-        {/* ── 푸터 ── */}
-        <div style={{
-          borderTop: "1px solid #ccc", paddingTop: "10px",
-          display: "flex", justifyContent: "space-between",
-          fontSize: "11px", color: "#777",
-        }}>
-          <span>주식회사 원엔지니어링</span>
-          <span>출력일시: {new Date().toLocaleString("ko-KR")}</span>
-        </div>
+        <PrintDocumentFooter />
       </div>
+
+      {/* ── 서명 부록 (A4 가로, 작업 인원) ── */}
+      {workerList.length > 0 && (
+        <div className="print-appendix-section mx-auto bg-white px-10 py-8 print:px-0 print:py-0 mt-8" style={{ maxWidth: "270mm" }}>
+          <div style={{ textAlign: "center", borderBottom: "2px solid #333", paddingBottom: "12px", marginBottom: "16px" }}>
+            <p style={{ fontSize: "11px", color: "#555", letterSpacing: "1px", marginBottom: "4px" }}>
+              주식회사 원엔지니어링 — {p.grade}급 작업허가서 {p.permit_type}
+            </p>
+            <h2 style={{ fontSize: "20px", fontWeight: "bold", margin: "4px 0" }}>별첨 1 · 작업 인원 서명부</h2>
+            <p style={{ fontSize: "11px", color: "#777", margin: 0 }}>Worker Signature Appendix</p>
+          </div>
+
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
+            <thead>
+              <tr style={{ background: "#f3f4f6" }}>
+                <th style={{ ...thStyle, width: "28px", textAlign: "center" }}>No</th>
+                <th style={{ ...thStyle, width: "80px" }}>이름</th>
+                <th style={{ ...thStyle, width: "70px" }}>소속회사</th>
+                <th style={{ ...thStyle, width: "60px", textAlign: "center" }}>서명 상태</th>
+                <th style={{ ...thStyle, width: "140px", textAlign: "center" }}>서명 일시</th>
+                <th style={{ ...thStyle }}>전자서명</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workerList.map((w, idx) => (
+                <tr key={w.id}>
+                  <td style={{ ...tdStyle, textAlign: "center" }}>{idx + 1}</td>
+                  <td style={{ ...tdStyle, fontWeight: "500" }}>{w.worker_name}</td>
+                  <td style={tdStyle}>{w.company_name ?? "-"}</td>
+                  <td style={{
+                    ...tdStyle, textAlign: "center", fontWeight: "bold",
+                    color: w.signed_at ? "#166534" : "#92400e", fontSize: "10px",
+                  }}>
+                    {w.signed_at ? "서명완료" : "대기"}
+                  </td>
+                  <td style={{ ...tdStyle, fontSize: "10px", textAlign: "center" }}>
+                    {w.signed_at ? new Date(w.signed_at).toLocaleString("ko-KR") : "-"}
+                  </td>
+                  <td style={{ ...tdStyle, height: "56px", textAlign: "center", padding: "4px" }}>
+                    {w.signature_data ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={w.signature_data}
+                        alt={`${w.worker_name} 서명`}
+                        style={{ maxHeight: "48px", maxWidth: "200px", margin: "0 auto", display: "block" }}
+                      />
+                    ) : (
+                      <span style={{ color: "#d1d5db" }}>-</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: "10px", fontSize: "10px", color: "#9ca3af", borderTop: "1px solid #e5e7eb", paddingTop: "8px" }}>
+            <span>주식회사 원엔지니어링</span>
+            <span>
+              서명 완료 {workerList.filter(w => w.signed_at).length}명 / 전체 {workerList.length}명 · 출력일시: {new Date().toLocaleString("ko-KR")}
+            </span>
+          </div>
+        </div>
+      )}
     </>
   );
 }
-
-const thStyle: React.CSSProperties = {
-  border: "1px solid #aaa",
-  background: "#f3f4f6",
-  padding: "6px 8px",
-  textAlign: "left",
-  fontWeight: "600",
-  whiteSpace: "nowrap",
-  fontSize: "11px",
-};
-
-const tdStyle: React.CSSProperties = {
-  border: "1px solid #aaa",
-  padding: "6px 8px",
-  verticalAlign: "middle",
-  fontSize: "11px",
-};
-
-const sectionTitleStyle: React.CSSProperties = {
-  fontSize: "13px",
-  fontWeight: "bold",
-  borderLeft: "4px solid #1d4ed8",
-  paddingLeft: "10px",
-  marginBottom: "8px",
-  marginTop: 0,
-};
